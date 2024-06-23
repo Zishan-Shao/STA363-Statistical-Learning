@@ -1,0 +1,314 @@
+---
+title: "STA363_Lab_8"
+author: "Zishan Shao"
+date: "2022-11-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r}
+# load the penguin dataset
+library(palmerpenguins)
+data(penguins)
+penguins <- na.omit(penguins)
+
+summary(penguins)
+
+head(penguins)
+
+penguins["island"]
+penguins[,4]
+penguins
+
+```
+
+
+# Question 1:
+
+*Grow a classification tree for Y= sex using all the available features. Call this tree tree1. Show your tree as your answer to this question. You are welcome to use the standard stopping rules (meaning you do not have to set your own unless you would like to).*
+
+**ANS: ** 
+
+```{r}
+set.seed(100)
+# Load the library suppressMessages(library(rpart))
+suppressMessages(library(rpart))
+# define the response variable Y = sex
+Y <- penguins$sex
+# Grow the tree
+tree1 <- rpart(Y ~ .-sex, method="class",data=penguins)
+# show the tree with plot
+suppressMessages(library(rattle))
+suppressMessages(library(rpart.plot))
+
+# tree
+fancyRpartPlot(tree1, sub = "Figure 1: Classification Tree 1")
+
+```
+
+
+# Question 2:
+
+*What is the Gini Index of the first split of this tree?*
+
+**ANS: ** The Gini Index was computed by the Gini Impurity Scores of every leaves. In the first split, it generates two leaves with the first leaf taking 34% of total observations and second leaf taking 66% of total observations. The gini impurity score of leaf 1 is 0.2952, and the gini impurity score of leaf 2 is 0.4422. thus the Gini Index was 0.3922.
+
+$$G(leaf1) = 1 - 0.82^2 - 0.18^2 = 0.2952$$
+$$G(leaf2) = 1 - 0.33^2 - 0.67^2 = 0.4422$$
+$$Gini \ Index = 0.34 \times 0.2952 + 0.66 \times 0.4422 = 0.3922$$
+
+```{r}
+# impurity score of leaf 1
+ip1 <- 1 - 0.82^2 - 0.18^2
+
+# impurity score of leaf 2
+ip2 <- 1 - 0.33^2 - 0.67^2
+
+# Gini coefficient
+G1 <- 0.34*ip1 + 0.66*ip2
+
+```
+
+
+# Question 3:
+
+*Using your tree, what sex would you predict for the first penguin in the data set?*
+
+**ANS: ** The first penguin has body mass of 3750 grams, which is larger than 3713 grams. Therefore, it falls into the left leaf, and should be classified as male. 
+
+
+
+# Question 4:
+
+*We can use the code predict(tree1) to get predicted probabilities from our tree. What is the predicted probability of being male and of being female for the 3rd penguin in the data set?*
+
+**ANS: ** The probability of being female of 3rd penguin is 0.9759 and being male is 0.02410.
+
+```{r}
+predict(tree1)[3,]
+# Q: We can get the probability, but how can we get the classification result?
+# It should be the results of a series of probabilities (equals the number of categories in response variable) 
+# Q: How this probability was derived?
+# It's basically percent of penguins in the leaf
+```
+
+
+# Question 5:
+
+*We can use the code predict(tree1, type = "class")to get predicted values of sex for each penguin. What is the predicted sex of the 3rd penguin in the data set? Note: this code chooses the class associated with the highest predicted probability.*
+
+**ANS: ** The 3rd penguin was predicted as a female penguin.
+
+```{r}
+predict(tree1, type = "class")[3]
+```
+
+
+
+# Question 6:
+
+*Create a confusion matrix for tree1. Hint: You may need to refer back to your logistic regression lab for this.*
+
+**ANS: ** 
+
+```{r}
+knitr::kable(table(predict(tree1, type = "class"), penguins$sex), caption= "Confusion matrix of Penguins", col = c("True Female", "True Male"))
+```
+
+
+
+# Question 7:
+
+*What is the sensitivity of your classification tree? Let 0 = female and 1 = male.*
+
+**ANS: ** sensitivity(true positive rate) = 164/(4 + 164) = 0.9762 = 97.62%
+
+```{r}
+# 164/(4 + 164)
+```
+
+
+
+# Question 8:
+
+*What is the specificity of your classification tree? Let 0 = female and 1 = male.*
+
+**ANS: ** specificity(true negative rate) = 139/(26 + 139) = 0.8424 = 84.24%
+
+```{r}
+# 139/(26 + 139)
+```
+
+
+
+# Question 9:
+
+*What percent of penguins in the training data are incorrectly classified by your tree? In other words, what is the classification error rate (CER)?*
+
+**ANS: ** CER = (26+4)/(26+4+139+164) = 0.0901 = 9.01%
+
+```{r}
+# (26+4)/(26+4+139+164)
+```
+
+
+
+# Question 10:
+
+*What percent of penguins in the training data are correctly classified by your tree? In other words, what is the accuracy?*
+
+**ANS: ** Accuracy = 1 - CER = 0.910 = 91.0%
+
+```{r}
+# 1 - (26+4)/(26+4+139+164)
+```
+
+
+# Question 11:
+
+*Create a single bootstrap sample from the penguins data. Use a random seed of 363663. Once you have your sample, grow a tree on that bootstrap sample. Call this tree tree2. Show the tree as the answer to this question.*
+
+**ANS: ** 
+
+```{r}
+# step 1: choose rows
+set.seed(363663)
+n <- nrow(penguins) # define the number of rows of penguins
+rowsChosen <- sample(1:n, n, replace = TRUE)
+# rowsChosen
+bootstrap <- penguins[rowsChosen,]
+bootstrap
+```
+
+```{r}
+# Train the tree2
+tree2 <- rpart(sex ~ ., method="class",data=penguins[rowsChosen,])
+# show the tree with plot
+suppressMessages(library(rattle))
+
+# tree
+fancyRpartPlot(tree2, sub = "Figure 2: Classification Tree 2")
+# prp(tree5,sub = "Figure 5: Regression Tree with Stopping Rule")
+```
+
+
+
+# Question 12:
+
+*Which rows in the penguins data set are OOB for your bootstrap sample?*
+
+**ANS: ** OOBs of the bootstrap sample:
+
+```{r}
+c(1:n)[-unique(rowsChosen)]
+```
+
+
+
+# Question 13:
+
+*Create a confusion matrix for tree2 and show the matrix as part of your answer. Is this the same as the confusion matrix we got from tree1?*
+
+**ANS: ** 
+
+```{r}
+knitr::kable(table(predict(tree2, type = "class"), penguins[rowsChosen,]$sex), caption= "Confusion matrix of Penguins (Tree 2)", col = c("True Female", "True Male"))
+```
+
+
+
+# Question 14:
+
+*Create a for loop that grows and plots a bagged classification forest with 3 trees.*
+
+**ANS: ** 
+
+```{r}
+B <- 3  # we have 3 trees to grow
+# create the bootstrapped samples for 3 trees
+set.seed(363663)
+n <- nrow(penguins) # define the number of rows of penguins
+Y <- penguins$sex
+
+for (i in 1:B) {
+  # randomly sample from the training data to create bootstrapped sample
+  rowsChosen <- sample(1:n, n, replace = TRUE) 
+  tree <- rpart(sex ~ ., method="class",data=penguins[rowsChosen,])
+  
+  # plot the tree
+  fancyRpartPlot(tree, sub = paste("Figure ", i , ": Classification Forest subtree " , i))
+}
+```
+
+
+# Question 15:
+
+*Using the package, grow a forest with B=1000 trees and call it forest1. Use the random seed 363663. When you look at the output, you will see OOB estimate of error rate. This is the OOB estimate of the CER. State this CER value as your answer to this question.*
+
+**ANS: ** 
+
+```{r}
+set.seed(363663)
+suppressMessages(library(randomForest))
+# create the forest 
+forest1 <- randomForest(sex~.,
+               data = penguins, mtry = ncol(penguins) - 1,
+               importance = TRUE,
+               ntree = 1000,
+               compete= FALSE)
+forest1
+```
+Because there are 6 predictors, so we set the mtry equals 6.
+The CER = (13+14) / (151 + 155 + 13 + 14) = 0.08108108, which is about 8.11%
+
+
+# Question 16:
+
+*What is the OOB estimate of the sensitivity?*
+
+**ANS: ** 
+
+Based on the output, the sensitivity = (155)/(155+14) = 0.9171598, which is about 91.7%
+
+
+
+# Question 17:
+
+*Which feature is most important in the forest? How can you tell?*
+
+```{r}
+# Load the library to make the graph
+suppressMessages(library(lattice))
+
+# Plot the importance
+barchart(sort(randomForest::importance(forest1)[,3]),
+xlab = "Percent Increase in OOB CER",
+main = "Figure: Importance")
+```
+
+**ANS: ** the body_mass_g is the most important feature in the forest, because it leads to largest proportion of increase in OOB after we permuting it.
+
+
+
+# Question 18:
+
+*Which feature is least important in the forest? How can you tell?*
+
+**ANS: ** The island, because it cause the least percent increase of OOB error rate after we permuting it, indicating that this feature was not a strong explanatory variable.
+
+
+
+# Question 19:
+
+*By how much (by what percent) does the OOB CER (remember, this means test CER) get worse if we permute the values of species?*
+
+**ANS: ** The OOB CER increases by around 27% after we permute the species. Therefore, the OOB CER get worse by 27%.
+
+
+
+
+

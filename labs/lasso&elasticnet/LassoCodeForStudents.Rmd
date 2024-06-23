@@ -1,0 +1,294 @@
+---
+title: "Lasso and Elastic Net in R"
+author: "Dr. Dalzell"
+date: ''
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# %%%%%%%%%%%%%%%%%%%%%%%%%%
+# Example with Data
+
+# Load the data
+library(ISLR)
+data(Hitters)
+Hitters <-na.omit(Hitters)
+
+head(Hitters)
+
+```
+
+# EDA 
+
+```{r}
+# Check Correlation
+library(corrplot)
+M <-cor(cor(Hitters[,-c(14,15,20)]))
+
+corrplot(M, method="circle", type = "upper")
+
+```
+
+```{r}
+# Create the design matrix
+XD <- model.matrix(Salary ~ . , data = Hitters)
+```
+
+# Ridge Regression
+
+```{r}
+# Run Ridge Regression
+suppressMessages(library(glmnet))
+set.seed(100)
+cv.out.ridge <- cv.glmnet(XD[,-1], Hitters$Salary, alpha = 0,lambda = seq(from = 0, to = 100, by = .5))
+
+# Default plot
+plot(cv.out.ridge)
+```
+
+```{r}
+# The plot in ggplot2 Dr. Dalzell built
+ridgePlot <- function(ridge.mod, metric, title){
+  library(ggplot2)
+  
+  smallestLambda <- ridge.mod$lambda[which.min(ridge.mod$cvm)] 
+  
+  if(metric == "MSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = (ridge.mod$cvm))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test MSE values for Different Tuning Parameters. Smallest MSE at lambda = ", smallestLambda), title = title, y = "Test MSE", x = "Tuning Parameter")
+  
+  }
+  
+  if(metric == "RMSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = sqrt(ridge.mod$cvm))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test RMSE values for Different Tuning Parameters. Smallest RMSE at lambda = ", smallestLambda), title = title, y = "Test RMSE", x = "Tuning Parameter")
+
+  }
+  
+  g1
+}
+```
+
+```{r}
+#Plotting using ggplot2
+ridgePlot(cv.out.ridge, metric = "MSE", title = "Figure: Ridge") + theme(text = element_text(size = 15))
+```
+
+```{r}
+# Metrics
+
+# Run the process again (same seed) with only the two lambdas of interest
+set.seed(100)
+cv.out.ridge.small <- cv.glmnet(XD, Hitters$Salary, alpha = 0,lambda = c(0,4.5))
+cv.out.ridge.small$lambda
+cv.out.ridge.small$cvm  # this gives us the MSE
+sqrt(cv.out.ridge.small$cvm)
+```
+
+
+```{r}
+# %%%%%%%%%%%%%%%%%%%%%%%%%%
+# Obtaining coefficients
+
+# Train Rdige
+ridge.final <- glmnet(XD[,-1], Hitters$Salary, alpha =0 ,
+                      lambda = 4.5)   # we need to remove the first column of design matrix because it is intercept, which will be assigned later
+
+# Train LSLR
+lslr.final <- glmnet(XD[,-1], Hitters$Salary, alpha =0 ,lambda = 0)
+
+# Store the coefficients
+lslr.betas <- as.numeric(coefficients(lslr.final))
+ridge.betas <- as.numeric(coefficients(ridge.final))
+
+# Create a data frame
+Betas <- data.frame("LSLR" = lslr.betas, "Ridge" = ridge.betas)
+
+rownames(Betas) <- colnames(XD)
+
+knitr::kable(Betas)
+
+aa <- 1
+bb <- matrix(rep(NA,10), 10,1)
+bb[,1] = aa
+bb
+cc <- matrix(rep(NA,10), 10,1)
+cc[,1] <- 5
+bb[,1]-cc[,1]
+sum((bb[,1]-cc[,1])^2)
+```
+
+
+# Lasso 
+
+```{r}
+# Run 10-fold CV
+set.seed(100)
+cv.out.lasso <- cv.glmnet(XD, Hitters$Salary, alpha = 1,lambda = seq(from = 0, to = 1000, by = .5))  # alpha = 1 is the lasso
+
+# Plot the results using the default plotting tool
+plot(cv.out.lasso)
+# cv.out.lasso
+```
+
+```{r}
+# The plot in ggplot2 Dr. Dalzell built
+ridgePlot <- function(ridge.mod, metric, title){
+  library(ggplot2)
+  
+  smallestLambda <- ridge.mod$lambda[which.min(ridge.mod$cvm)] 
+  
+  if(metric == "MSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = (ridge.mod$cvm))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test MSE values for Different Tuning Parameters. Smallest MSE at lambda = ", smallestLambda), title = title, y = "Test MSE", x = "Tuning Parameter")
+  
+  }
+  
+  if(metric == "RMSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = sqrt(ridge.mod$cvm))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test RMSE values for Different Tuning Parameters. Smallest RMSE at lambda = ", smallestLambda), title = title, y = "Test RMSE", x = "Tuning Parameter")
+
+  }
+  
+  g1
+}
+```
+
+```{r}
+#Plotting using ggplot2
+ridgePlot(cv.out.lasso, metric = "MSE", title = "Figure 1: Lasso") + theme(text = element_text(size = 16))
+```
+
+```{r}
+# Use a smaller range
+# Run 10-fold CV
+set.seed(100)
+cv.out.lasso <- cv.glmnet(XD, Hitters$Salary, alpha = 1,lambda = seq(from = 0, to = 25, by = .5))
+
+ridgePlot(cv.out.lasso, metric = "MSE", title = "Figure: Lasso") + theme(text = element_text(size = 20))
+```
+
+
+```{r}
+# Choosing the lambda we want
+cv.out.lasso$lambda.min
+```
+
+```{r}
+# %%%%%%%%%%%%%%%%%%%%%%%%%%
+# Obtaining coefficients
+
+# Train Lasso
+lasso.final <- glmnet(XD[,-1], Hitters$Salary, alpha =1 ,
+                      lambda = 2.5)
+
+# Store the coefficients
+lasso.betas <- as.numeric(coefficients(lasso.final))
+
+# Create a data frame
+Betas <- data.frame("LSLR" = lslr.betas, "Ridge" = ridge.betas, "Lasso" = lasso.betas)
+
+rownames(Betas) <- colnames(XD)
+
+knitr::kable(Betas)
+
+library(xtable)
+xtable(Betas, digits = 3)
+```
+
+```{r}
+# Metrics
+
+min(cv.out.lasso$cvm)
+sqrt(min(cv.out.lasso$cvm))
+```
+
+
+```{r}
+# Ridge 
+ridge.final <- glmnet(XD[,-1], Hitters$Salary, alpha =0 ,
+                      lambda = 4.5)
+
+# Train LSLR
+lslr.final <- glmnet(XD[,-1], Hitters$Salary, alpha =0 ,lambda = 0)
+
+# Train Lasso
+lasso.final <- glmnet(XD[,-1], Hitters$Salary, alpha =1 ,
+                      lambda = 2.5)
+```
+
+
+
+# Elastic Net 
+
+```{r}
+# Choose a sequence of values for alpha 
+alphaseq <- seq(from = 0, to =1 , by =.01)
+
+storage <- data.frame("Alpha" = rep(NA,length(alphaseq)), "Lambda" = rep(NA,length(alphaseq)), "MSE" = rep(NA,length(alphaseq)))
+
+a = 1 
+# Run 10-fold CV
+set.seed(100)
+for( i in alphaseq ){
+  cv.out <- cv.glmnet(XD[ , -1], Hitters$Salary, alpha = i,lambda = seq(from = 0, to = 25, by = .5))
+  storage$Lambda[a] <- cv.out$lambda.min
+  storage$MSE[a] <- (min(cv.out$cvm))
+  storage$Alpha[a] <- i
+  a = a + 1 
+}
+```
+
+
+```{r}
+# Run 10-fold CV
+set.seed(100)
+for( i in 1:101 ){
+  # Pull alpha
+  alpha <- alphaseq[i]
+  
+  # Run 10-fold CV
+  cv.out <- cv.glmnet(XD[ , -1], Hitters$Salary, alpha = alpha,lambda = seq(from = 0, to = 25, by = .5))
+  
+  # Store lambda 
+  storage$Lambda[i] <- cv.out$lambda.min
+  # Store test MSE
+  storage$MSE[i] <- (min(cv.out$cvm))
+  # Store Alpha
+  storage$Alpha[i] <- alpha
+}
+```
+
+
+```{r}
+# Formatting the output in a pretty way 
+# For Latex
+xtable
+# For knitting 
+knitr::kable(storage)
+```
+
+```{r}
+storage[which.min(storage$MSE),]
+```
+
+```{r}
+# %%%%%%%%%%%%%%%%%%%%%%%%%%
+# Obtaining coefficients
+
+# Train Elastic Net
+elastic.final <- glmnet(XD[,-1], Hitters$Salary, alpha =.86 ,
+                      lambda = 3)
+
+# Store the coefficients
+elastic.betas <- as.numeric(coefficients(elastic.final))
+
+# Create a data frame
+Betas <- data.frame("LSLR" = lslr.betas, "Ridge" = ridge.betas, "Lasso" = lasso.betas, "Elastic" = elastic.betas)
+
+rownames(Betas) <- colnames(XD)
+
+knitr::kable(Betas)
+
+xtable(Betas, digits = 3)
+```

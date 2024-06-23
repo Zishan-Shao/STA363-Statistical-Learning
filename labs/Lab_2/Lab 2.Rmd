@@ -1,0 +1,494 @@
+---
+title: "Lab 2"
+author: "Yuka Maeyama"
+date: "2022-09-01"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r}
+spam_test <- read.csv('/Users/shaozishan/Desktop/R_Labs/STA363/Lab_2/test.csv')
+
+spam_train <- read.csv('/Users/shaozishan/Desktop/R_Labs/STA363/Lab_2/test.csv')
+
+```
+
+```{r}
+library(ggplot2)
+```
+
+## Question 1
+
+*How many rows are in the test data set? What about the training data set?*
+
+```{r}
+nrow(spam_test)
+nrow(spam_train)
+```
+
+We have 900 rows in the test data set, and 3021 rows in train data set.
+
+
+## Question 2
+
+*The test data set is smaller than the training data set. This is almost always the case in statistical learning applications. Explain why you think this is the case.*
+
+Typically, training data is larger than testing data. This occurs because we wish to give the model as many data points as possible in order for it to discover and learn important patterns. As soon as data from our datasets is sent to a machine learning algorithm, it discovers patterns and makes choices.
+
+
+##  Question 3
+
+*(a)Create a scatter plot where line breaks is on the x axis and the number of characters is on the Y axis. (b) Did you use your training or test data set to create your plot?*
+
+```{r}
+ggplot(spam_train, aes(x = line_breaks, y = num_char)) + geom_point(color='blue')+ labs(title="Scatter plot ", x = "Line Breaks Num",  y = "Characters Num (in thousands)")
+```
+
+I would use training data set to create my plot.
+
+
+## Question 4
+
+*Change the color and/or the shape of the points on the graph based on Y. In other words, spam emails should be one shape and/or color and non spam emails should be a different shape and/or color. Hint: Look back at Lab 1 if you have questions on how to do this!*
+
+
+```{r}
+ggplot(spam_train, aes(x = line_breaks, y = num_char, color = spam, pch = spam)) + labs(title="Scatter plot with spam type",x = "Line Breaks Num",  y = "Characters Num (in thousands)") + geom_point()
+```
+
+
+## Question 5
+
+*Suppose an email has 175 characters and 3800 line breaks. Using the 3-nearest neighbors, what value Y^ would you predict for this email? Hint: You don’t need any code for this; look at the graph from Question 4.*
+
+I would use the upper-right corner's one spam with 3-nearest neighbors,which is :
+
+spam at x = 3800 line breaks and y = 175 characters
+not spam at x = 3500 line breaks and y = 162 characters 
+not spam at x = 4000 line breaks and y = 190 characters
+
+Seeing that we have 2 not spam and 1 spam, we would get $\hat{Y}$ of not spam to predict for this email.
+
+
+## Question 6
+
+*Using 5 nearest neighbors, run KNN. Look at the object results you have created. Is this a scalar (one value), a vector (one column or one row), or a matrix (multiple rows and columns)?*
+
+```{r}
+suppressMessages(library(class))
+```
+
+```{r}
+results <- knn(train = spam_train[,c(12,13)] , test = spam_test[,c(12,13)] , cl = spam_train$spam, k = 5)
+
+# results
+```
+
+According to the result, it is a vector with one row.
+
+
+## Question 7
+
+*Make a table to show how many emails 5-nearest neighbors predicted to be spam and not spam.*
+
+```{r}
+knitr::kable(table(results, spam_test$spam), caption= "Table 1: confusion matrix(k=5)", col = c("True Not Spam", "True Spam"))
+```
+
+
+## Question 8
+
+*What is the sensitivity of your classification method? Do we prefer methods with larger or smaller sensitivity?*
+ 
+```{r}
+18/(74+18)
+```
+ 
+The sensitivity(true positive) of the classification method would be:    
+  18/(74+18) = .196= 19.6%
+
+We prefer methods with larger sensitivity(true positive) because it means the percent of actual positive that we labels as positive would be pretty high. Hence, we would have lower classification error rate.
+
+
+## Question 9
+
+*What is the specificity of your classification of your classification method? Do we prefer methods with larger or smaller specificity?*
+
+```{r}
+791/(791+17)
+```
+
+The specificity(true negative) of the classification method would be: 
+  791/(791+17) = .979 = 97.9%
+  
+
+We prefer methods with larger specificity(true positive) because it means the percent of actual negative that we labels as negative would be pretty high. Hence, we would have lower classification error rate.
+
+
+## Question 10
+
+*What is the false positive rate? Do we prefer methods with larger or smaller false positive rates?*
+
+```{r}
+74/(791+74)
+```
+
+The false positive rate of the classification method would be: 
+  74/(791+74) = .086 = 8.6%
+  
+
+We prefer methods with smaller false positive rate because it means the percent of actual negative that we labels as positive would be pretty small. Hence, we would have lower classification error rate.
+
+
+## Question 11
+
+*What is the false negative rate? Do we prefer methods with larger or smaller false negative rates?*
+
+```{r}
+17/(17+18)
+```
+
+The false negative rate of the classification method would be: 
+  17/(17+18) = .486 = 48.6%
+  
+
+We prefer methods with smaller false negative rate because it means the percent of actual positive that we labels as negative would be pretty small. Hence, we would have lower classification error rate.
+
+
+## Question 12
+
+*What is the accuracy of your classification approach? Hint: This the proportion of the predictions that are correct.*
+
+```{r}
+(791+18)/(791+74+17+18)
+```
+
+The accuracy of the classification method would be: 
+  (791+18)/(791+74+17+18) = .899 = 89.9%
+
+
+## Question 13
+
+*Run kNN using k=3,7,9. State the sensitivity and specificity that you get using each choice if k.*
+
+```{r}
+results <- knn(train = spam_train[,c(12,13)] , test = spam_test[,c(12,13)] , cl = spam_train$spam, k = 3)
+```
+
+```{r}
+knitr::kable(table(results, spam_test$spam), caption= "Table 2: confusion matrix (k=3)", col = c("True Not Spam", "True Spam"))
+```
+```{r}
+67/(67+25)
+779/(779+29)
+
+(67+779)/(67+779+25+29)
+```
+
+When k = 3, we get the following:
+  sensitivity(true positive) = 67/(67+25) = .728 = 72.8%
+  specificity(true negative) = 29/(779+29) = .964 = 96.4%
+  accuracy = (67+779)/(67+779+25+29) = 0.94 = 94%
+  
+  
+  
+```{r}
+results <- knn(train = spam_train[,c(12,13)] , test = spam_test[,c(12,13)] , cl = spam_train$spam, k = 7)
+```
+
+```{r}
+knitr::kable(table(results, spam_test$spam), caption= "Table 3: confusion matrix (k=7)", col = c("True Not Spam", "True Spam"))
+```
+
+```{r}
+17/(17+75)
+799/(799+9)
+```
+
+When k = 7, we get the following:
+  sensitivity(true positive) = 17/(17+75) = .185 = 18.5%
+  specificity(true negative) = 799/(779+9) = .989 = 98.9%
+  
+  
+```{r}
+results <- knn(train = spam_train[,c(12,13)] , test = spam_test[,c(12,13)] , cl = spam_train$spam, k = 9)
+```
+
+```{r}
+knitr::kable(table(results, spam_test$spam), caption= "Table 4: confusion matrix (k=9)", col = c("True Not Spam", "True Spam"))
+```
+
+```{r}
+17/(17+75)
+797/(797+11)
+```
+
+When k = 9, we get the following:
+  sensitivity(true positive) = 17/(17+75) = .185 = 18.5%
+  specificity(true negative) = 797/(797+11) = .986 = 98.6%
+  
+  
+## Question 14
+
+*What trend to you notice in the specificity as the k increases? Explain why you think this is happening as k increases.*
+
+specificity(true negative) increase from 96.4% to 98.9% as the k increases from 3 to 7. And then specificity(true negative) decrease to 98.6% as k increases from 7 to 9, but it is only a slight change rather than huge change(so the number is still reasonable).
+
+It happens because when the number of selected nearest points (which is k) increase, the error would become larger, seeing that the chance of being label as no spam increases.
+
+
+## Question 15
+
+*Looking at the sensitivity and specificity from k=3,5,7,9, which k would you choose? Explain your choice.*
+
+|           | Sensitivity | Specificity |
+|-----------|-------------|-------------|
+| KNN (k=5) | 19.6%       | 97.9%       |
+| KNN (k=3) | 72.8%       | 96.4%       |
+| KNN (k=7) | 18.5%       | 98.9%       |
+| KNN (k=9) | 18.5%       | 98.6%       |
+
+I would like to choose k = 3. Because specificity(true positive) decrease a lot(72.8% to 18.5%) as k increases from 3 to 9 ,while specificity(true negative) only change slightly(96.4% to 98.9%) as k increases from 3 to 9. 
+
+In this case, we would like to choose the one that balance specificity(true positive) and specificity(true negative), which means both of them have relatively high percentage.
+
+
+## Question 16
+
+*Create the plot using the code above. Do you feel comfortable claiming that the shape condition is satisfied? Why or why not?*
+
+```{r}
+emplogitPlot <- function(x, y, binsize = NULL, ci = FALSE, probit = FALSE,
+prob = FALSE, main = NULL, xlab = "", ylab = "", lowess.in = FALSE){
+  # x         vector with values of the independent variable
+  # y         vector of binary responses
+  # binsize   integer value specifying bin size (optional)
+  # ci        logical value indicating whether to plot approximate
+  #           confidence intervals (not supported as of 02/08/2015)
+  # probit    logical value indicating whether to plot probits instead
+  #           of logits
+  # prob      logical value indicating whether to plot probabilities
+  #           without transforming
+  #
+  # the rest are the familiar plotting options
+  
+  if(class(y) =="character"){
+   y <- as.numeric(as.factor(y))-1
+   }
+  
+  if (length(x) != length(y))
+    stop("x and y lengths differ")
+  if (any(y < 0 | y > 1))
+    stop("y not between 0 and 1")
+  if (length(x) < 100 & is.null(binsize))
+    stop("Less than 100 observations: specify binsize manually")
+  
+  if (is.null(binsize)) binsize = min(round(length(x)/10), 50)
+  
+  if (probit){
+    link = qnorm
+    if (is.null(main)) main = "Empirical probits"
+  } else {
+    link = function(x) log(x/(1-x))
+    if (is.null(main)) main = "Empirical logits"
+  }
+  
+  sort = order(x)
+  x = x[sort]
+  y = y[sort]
+  a = seq(1, length(x), by=binsize)
+  b = c(a[-1] - 1, length(x))
+  
+  prob = xmean = ns = rep(0, length(a)) # ns is for CIs
+  for (i in 1:length(a)){
+    range = (a[i]):(b[i])
+    prob[i] = mean(y[range])
+    xmean[i] = mean(x[range])
+    ns[i] = b[i] - a[i] + 1 # for CI 
+  }
+  
+  extreme = (prob == 1 | prob == 0)
+  prob[prob == 0] = min(prob[!extreme])
+  prob[prob == 1] = max(prob[!extreme])
+  
+  g = link(prob) # logits (or probits if probit == TRUE)
+  
+  linear.fit = lm(g[!extreme] ~ xmean[!extreme])
+  b0 = linear.fit$coef[1]
+  b1 = linear.fit$coef[2]
+  
+  loess.fit = loess(g[!extreme] ~ xmean[!extreme])
+  
+  plot(xmean, g, main=main, xlab=xlab, ylab=ylab)
+  abline(b0,b1)
+  if(lowess.in ==TRUE){
+  lines(loess.fit$x, loess.fit$fitted, lwd=2, lty=2)
+  }
+}
+```
+
+```{r}
+emplogitPlot(x=spam_train$line_breaks, y=spam_train$spam, 
+             xlab = "Line Breaks", 
+             ylab = "Log Odds of Being Spam", 
+             main = "Figure 3")
+```
+
+I would say the shape condition of linearity is not satisfied, since the general pattern of the scatter plot lies more close to a curve.
+
+
+## Question 17
+
+*Create an  where the log of line breaks is on the x axis.Which of the empirical logit plots (using line breaks or using log line breaks) is more linear? Based on the plots, choose whether you will use line breaks or log line breaks as a feature in the model.*
+
+```{r}
+emplogitPlot(x=log(spam_train$line_breaks), y=spam_train$spam, 
+             xlab = "Line Breaks", 
+             ylab = "Log Odds of Being Spam", 
+             main = "Figure 3")
+```
+
+We could clearly see that the empirical logit plots using log line breaks is more linear, which satisfy the shape condition of linearity. Hence, I would use log line breaks as a feature in the model.
+
+
+## Question 18
+
+*Repeat this process for number of characters.*
+
+```{r}
+emplogitPlot(x=spam_train$num_char, y=spam_train$spam, 
+             xlab = "Characters", 
+             ylab = "Log Odds of Being Spam", 
+             main = "Figure 3")
+```
+
+I would say the shape condition of linearity is not satisfied , since the general pattern of the scatter plot lies more close to a curve.
+
+```{r}
+emplogitPlot(x=log(spam_train$num_char), y=spam_train$spam, 
+             xlab = "Characters", 
+             ylab = "Log Odds of Being Spam", 
+             main = "Figure 3")
+```
+
+We could clearly see that the empirical logit plots using log line breaks is more linear, which satisfy the shape condition of linearity. Hence, I would use log characters as a feature in the model.
+
+
+## Question 19
+
+*Train your chosen logistic regression model. Write down the trained logistic regression line in log odds form. Hint: For a template for write out your model in Markdown, copy and paste the following into the white space (NOT a chunk), and adapt it to match your trained model: $$log\left(\frac{\hat{\pi}_i}{1-\hat{\pi}_i}\right) =$$*
+
+The logistic regression model would be: 
+    $$log\left(\frac{\pi_i}{1-\pi_i}\right) =  \beta_0 + \beta_1log(lineBreak_i) + \beta_2log(Character_i)$$
+  
+```{r}
+m1 <- glm(as.factor(spam) ~ log(line_breaks)+ log(num_char), data = spam_train, family = "binomial")
+
+summary(m1)$coefficients
+```
+
+From the result above We can see that:
+
+  - ${\hat\beta_0}$ = 1.089
+  - ${\hat\beta_1}$ = -0.867
+  - ${\hat\beta_2}$ = 0.176
+
+And then train model would be: 
+    $$log\left(\frac{\hat{\pi}_i}{1-\hat{\pi}_i}\right) =  {\hat\beta_0} + {\hat\beta_1}log(lineBreak_i) + {\hat\beta_2}log(Character_i)$$
+
+  $$log\left(\frac{\hat{\pi}_i}{1-\hat{\pi}_i}\right) =  1.089  -0.867log(lineBreak_i) + 0.176log(Character_i)$$
+
+
+## Question 20
+
+*Use your trained model to make predictions Y^ for each email in the test data set. Show a confusion matrix comparing the true values of Y in the test data to your predictions.*
+
+```{r}
+probabilities <- predict(m1, newdata = spam_test,type = "resp")
+```
+
+```{r}
+predicted.Y <- ifelse(probabilities > 0.5, "1" , "0")
+```
+
+```{r}
+table("Prediction" = predicted.Y, "Atual" = spam_test$spam)
+```
+
+Here, 0 is not spam and  1 is spam. 
+
+
+## Question 21
+
+*What is the sensitivity of your classification approach?*
+
+```{r}
+2/(90+2)
+```
+
+The sensitivity(true positive) of this classification approach would be:    
+  2/(90+2) = .022 = 2.2%
+
+
+## Question 22
+
+*What is the specificity of your classification approach?*
+
+```{r}
+808/(808+0)
+```
+
+The specificity(true negative) of this classification approach would be:    
+  808/(808+0) = 1 = 100%
+
+
+## Question 23
+
+*What is the false positive rate?*
+
+```{r}
+90/(90+808)
+```
+
+The false positive of this classification approach would be:
+  90/(90+808)) = .1 = 10%
+
+
+## Question 24
+
+*What is the false negative rate?*
+
+```{r}
+0/(0+2)
+```
+
+The false negative of this classification approach would be:
+  0/(0+2) = 0 = 0%
+
+
+## Question 25
+
+*What is the accuracy of your classification approach?*
+
+```{r}
+(808+2)/(808+90+0+2)
+```
+
+The accuracy of this classification approach would be:
+  (808+2)/(808+90+0+2) = .9 = 90%
+
+
+## Question 26
+
+*Compare the two classification approaches (kNN with your chosen k or logistic regression) in terms of (1) sensitivity, (2) specificity, and (3) accuracy.       Hint: One useful way to compare is to make a table. I like to use this site(https://www.tablesgenerator.com/markdown_tables) to help create tables. Just type in the values as you want them to appear in the table, and then hit “Generate”. The result can be copied from the website and then put into the white space (not a chunk) in your Markdown file. Knit, and you will see your table!*
+
+|                     | Sensitivity | Specificity | Accuracy |
+|---------------------|-------------|-------------|----------|
+| Logistic regression | 2.2%        | 100%        | 90%      |
+| KNN (k=3)           | 72.8%       | 96.4%       | 94%      |
+
+According the table above, we could clearly see that KNN with k = 3 has a much higher sensitivity(+70.6%), slightly lower specificity(-3.6%), and overall higher accuracy(+4%) comparing to the logistic regression. Thus, KNN with k = 3 would be a more ideal choice for us to build a spam filter for a particular set of emails with a higher predicting accuracy.

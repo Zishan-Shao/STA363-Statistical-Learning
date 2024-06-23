@@ -1,0 +1,110 @@
+---
+title: "STA363_Lab_3"
+author: "Zishan Shao"
+date: "2022-09-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r}
+# load the data
+library(palmerpenguins)
+data("penguins")
+
+# removing the opbservations with missing data
+penguins <- na.omit(penguins)
+```
+
+
+## Question 1:
+
+*What problems occur when we split the training data set into two data sets, especially with a data set this small?*
+
+**ANS:** There are two major problems for spliting the testing data from training data. 1) smaller sample size: The testing data usually composed of 20% ~ 30% of the sample data, which is a relatively large proportion, and it could influence the accuracy of the model. 2) higher variance of estimation: the training result could depend on the rows chosen, which cause high variance of estimation.
+
+
+```{r}
+set.seed(100)
+trainRows <- sample(1:333, 200)
+```
+
+
+## Question 2:
+
+*Create a code chunk. Use the code sample(1:10, 2) to print out 2 random numbers between 1 and 10. Hit play on the chunk. What numbers do you get? Now, hit play again. What numbers do you have now?*
+
+**ANS:** 
+
+```{r}
+sample(1:10, 2)  # random samplling 2 numbers from 1 to 10
+```
+
+In the first run, I got 7 & 9, in the second run, I got 3 & 1
+
+
+## Question 3:
+
+*Now, add the line set.seed(435) to the beginning of your code chunk from the previous question (meaning this line needs to come before the sample command.) You will note that I used 435, but you can use literally any positive integer you want as your random seed. Hit play on the chunk. What numbers do you get? Now, hit play again. What numbers do you have now?*
+
+```{r}
+set.seed(435)
+sample(1:10, 2)
+```
+
+**ANS:** In the first run, I got 6 & 10, in the second run, I got 6 & 10. The seeds makes sure that my output is defined
+
+
+## Question 4: 
+
+*Set a random seed of 367. Show the code you would need to sample 5 random numbers between 5 and 678.*
+
+```{r}
+set.seed(367)
+trainRows <- sample(1:333, 200)
+
+# randomly sample 5 numbers between 5 and 678
+sample(5:678, 5)
+```
+
+
+## Question 5:
+
+*Set a random seed of 245. Show the code you would need to sample 5 random numbers between 5 and 200, and store the results as trainPractice. Which 5 random numbers did you select?*
+
+```{r}
+set.seed(245)
+trainPractice <- sample(5:200, 5)
+print(trainPractice)
+```
+
+**ANS:** I selected 86, 45, 62, 58, 65
+
+
+## Question 6:
+
+*Using the rows indicated in the trainPractice vector you created in Question 4, create a data frame (data set) called trainPracticeData by selecting only the rows from the penguin data that are indicated in trainPractice. Print out the result by typing trainPracticeData in a chunk and pressing play.*
+
+**ANS:**
+
+```{r}
+# trainPracticeData <- penguins[trainPractice,] # should I use trainPractice here?
+trainPracticeData <- penguins[trainRows,]
+trainPracticeData
+```
+
+
+```{r}
+# Testing data
+testPenguins <- penguins[-trainRows,]
+# The - operator means “not” or “except”;
+
+# remove unused objects
+rm(trainRows,trainPractice,trainPracticeData)
+```
+
+
+

@@ -1,0 +1,340 @@
+---
+title: "STA363_Lab4"
+author: "Zishan Shao"
+date: "2022-09-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+set.seed(363663)
+```
+
+```{r}
+# import the penguins data
+library(palmerpenguins)
+data("penguins")
+
+# removing the rows with missing data
+penguins <- na.omit(penguins)
+
+# our goal: predict Y = the sex of the penguin based on the flipper length and bill length of that penguin using 5-nearest neighbors.
+```
+
+
+## Question 1:
+
+*How many rows should be in each fold for our penguins data? Will all the folds have exactly the same number of rows? Explain your reasoning.*
+
+**ANS: ** Since there are totally 333 observations in cleaned penguin data, we should assign these values roughly equally across each fold. This means each fold is expected to get 33 observations and some of them will have to deal with the remaining 3 observations if we distribute 330 observations equally across the folds. Therefore, the folds will not have exactly the same number of rows because some of them need to deal with these 3 remaining rows. I plan to use ceiling(333 / k) when creating the folds to solve the problem.
+
+
+
+## Question 2:
+
+*Create a data set called penguinsSmall that contains the first 20 rows in the penguin data set. If we use 5-fold CV with this smaller data set, how many rows belong in each fold?*
+
+**ANS: **
+
+```{r}
+penguinsSmall <- penguins[c(1:20),]
+penguinsSmall
+```
+
+If we use 5-fold CV with penguinsSmall, which has 20 observations, each fold should have 20 / 5 = 4 observations.
+
+
+## Question 3:
+
+*For our 5-fold CV with penguinsSmall, how many slips of paper in this box need to contain the number 4?*
+
+**ANS: ** Number 4 should have 4 papers so that 4 observations will be assigned to the fold 4.
+
+
+```{r}
+# create the table (fold) number that holds numbers 1 to 5 repeated 4 times
+papers <- rep(1:5, 4)  
+```
+
+
+## Question 4:
+
+*Suppose we have a data set with 500 rows, and we want to use 5-fold CV. What code would need to create the equivalent of the papers vector for this new data set?*
+
+**ANS: ** I will increase the repeatation number to 500 / 5 = 100 times.
+
+```{r, echo = TRUE}
+# I have include some important code in 
+# final output for better understanding
+papers1 <- rep(1:5, 500 / 5)  
+```
+
+
+```{r}
+set.seed(363663)
+# indicates which row in our 20 row data set belongs to each of the 5-folds
+foldsSmall <- sample(papers, 20, replace = FALSE)  # this will sample 20 numbers from the papers
+foldsSmall
+data.frame("Rows" = row.names(penguinsSmall), "Folds" = foldsSmall)
+```
+
+
+## Question 5:
+
+*Which fold is the 5th row in the data set assigned to? What about the 20th row?*
+
+**ANS: ** The fold 3 is the one that 5th row assigned to. The 20th row is also assigned to fold 3.
+
+
+
+## Question 6:
+
+*Use R to assign the 333 rows to 10 folds. Use the same seed as we did in the previous section (363663). Which fold is the 1st row in the penguins data set assigned to? What about the second row?
+
+Hint: Make sure you change the names of papers and foldSmall so you don’t replace these vectors with new ones. We will need the ones from the previous example in the next section! *
+
+**ANS: ** 
+
+```{r}
+set.seed(363663)
+# then taking maximum of 34 data for each fold
+# Note: in this case, the papers2 is an ordered vector
+papers2 <- rep(1:10, ceiling(333 / 10))  # repeat the number 1 - 10 to 333 numbers (create a vector composed by randomly assigned 1 -10 for each with size of ceiling (333/10))
+# print(papers2)
+foldsSmall1 <- sample(papers2, 333, replace = FALSE)  # randomly sampling 333 numbers from paper2 vector --> completely changes the order of numbers in paper 2
+table(foldsSmall1)
+sprintf("The 1 st row assigned to: %d", foldsSmall1[1])
+sprintf("The 2 nd row assigned to: %d", foldsSmall1[2])
+```
+
+
+
+## Question 7:
+
+*Which rows in the penguinsSmall data set are in fold 1?*
+
+**ANS: ** 
+
+```{r}
+which(foldsSmall == 1)
+```
+
+The 1, 7, 12, 14 rows are in the fold 1.
+
+
+
+## Question 8:
+
+*Which rows in the penguinsSmall data set are in fold 2?*
+
+**ANS: **
+
+```{r}
+which(foldsSmall == 2)
+```
+
+The 2, 13, 15, 19 rows are in the fold 2.
+
+
+
+```{r}
+fold1 <- penguinsSmall[which(foldsSmall==1), ]
+knitr::kable(fold1)
+```
+
+
+
+## Question 9:
+
+*Create fold 2 (meaning show the fold 2 data set) for penguinsSmall. Check to make sure the row numbers match what you have in Question 8!*
+
+**ANS: **
+
+```{r}
+fold2 <- penguinsSmall[which(foldsSmall==2), ]
+knitr::kable(fold2)
+```
+
+
+
+## Question 10:
+
+*Create fold 10 (meaning show the fold 10 data set) for penguins.*
+
+**ANS: ** 
+
+```{r}
+foldL10 <- penguins[which(foldsSmall1==10),]
+knitr::kable(foldL10)
+```
+
+
+
+## Question 11:
+
+*What are the dimensions of storageSmall? (This means how many rows and how many columns).*
+
+**ANS: ** 
+
+```{r}
+storageSmall <- data.frame("YHat" = rep(NA,20))
+sprintf("dimension of storageSmall: row(%d), column(%d)", nrow(storageSmall), ncol(storageSmall))
+```
+
+
+
+## Question 12:
+
+*Code and run Step 1 - 4 above. Recall that our goal for today is to predict Y = the sex of the penguin based on the flipper length and bill length of that penguin. Print out the storageSmall vector when you have completed the steps. Which rows are currently filled in? Does it make sense that these rows are filled in? Explain.
+
+NOTE: When you store the predicted penguin sex, use as.character(Kpreds). Why? Because this time our response variable is recorded as words rather than numbers.*
+
+**ANS: **
+
+```{r}
+library(class)
+f = 1;
+# find the data in fold f
+infold <- which(foldsSmall == f)
+
+# define the train and test data sets
+newTrain <- penguinsSmall[-infold,]
+newTest <- penguinsSmall[infold,]
+
+# make predictions of sex based on flipperlength and bill length
+# define the male as 1 and female as 0
+k_preds <- knn(newTrain[,c(3,5)] , newTest[,c(3,5)] , k = 5, cl = newTrain$sex)
+
+# store predictions
+storageSmall$YHat[infold] <- as.character(k_preds)
+
+sprintf("Infold Indices: %d", infold)
+print(storageSmall)
+```
+
+The row 1, 7, 12, 14 are filled in, which totally make sense because these rows are observations in test dataset, indicated by the indices in infold.
+
+
+## Question 13:
+
+*Repeat this process but now move on to fold 2. Print out the storageSmall vector when you have completed the steps. Which rows are currently filled in? Does it make sense that these rows are filled in? Explain.*
+
+**ANS: **
+
+```{r}
+library(class)
+f = 2;
+# find the data in fold f
+infold <- which(foldsSmall == f)
+
+# define the train and test data sets
+newTrain <- penguinsSmall[-infold,]
+newTest <- penguinsSmall[infold,]
+
+# make predictions of sex based on flipperlength and bill length
+# define the male as 1 and female as 0
+k_preds <- knn(newTrain[,c(3,5)] , newTest[,c(3,5)] , k = 5, cl = newTrain$sex)
+
+# store predictions
+storageSmall$YHat[infold] <- as.character(k_preds)
+
+print(infold)
+print(storageSmall)
+```
+
+We could see that the row 2, 13, 15, and 19 are also filled in along with row 1, 7, 12, 14. This result makes sense because the storageSmall now includes both the result from f = 1 and f = 2, which both have a test dataset with size = 4.
+
+
+## Question 14:
+
+*Create a for loop to run 5-fold CV on the small data set. Print out the storageSmall vector when you have completed the loop.*
+
+**ANS: **
+
+```{r}
+library(class)
+
+for (f in c(1:5)) {
+  # find the data in fold f
+  infold <- which(foldsSmall ==f)
+  
+  # define the train and test data sets
+  newTrain <- penguinsSmall[-infold,]
+  newTest <- penguinsSmall[infold,]
+  
+  # make predictions of sex based on flipperlength and bill length
+  # define the male as 1 and female as 0
+  k_preds <- knn(newTrain[,c(3,5)] , newTest[,c(3,5)] , k = 5, cl = newTrain$sex)
+  
+  # store predictions
+  storageSmall$YHat[infold] <- as.character((k_preds))
+}
+
+print(storageSmall)
+```
+
+
+## Question 15:
+
+*Create a for loop to run 10-fold CV on the penguins data set. Create a confusion matrix when you finish the loop.*
+
+**ANS: **
+
+```{r}
+library(class)
+storage <- data.frame("YHat" = rep(NA,nrow(penguins)))
+
+for (f in c(1:10)) {
+  # find the data in fold f
+  infold <- which(foldsSmall1 ==f)
+  
+  # define the train and test data sets
+  newTrain <- penguins[-infold,]
+  newTest <- penguins[infold,]
+  
+  # make predictions of sex based on flipperlength and bill length
+  # define the male as 1 and female as 0
+  k_preds <- knn(newTrain[,c(3,5)] , newTest[,c(3,5)] , k = 5, cl = newTrain$sex)
+  
+  # store predictions
+  storage$YHat[infold] <- as.character((k_preds))
+}
+
+# confusion matrix
+knitr::kable(table(storage$YHat, penguins$sex), caption= "Confusion matrix (fold=10) of Penguins", col = c("True Female", "True Male"))
+
+```
+
+
+## Question 16:
+
+*What is the geometric mean of sensitivity (Y = 1 = male) and specificity (Y = 0 = female) for 10-fold CV with 5 nearest neighbors? Show your work.*
+
+**ANS: **
+
+I double validates the answer with my computation and the code
+```{r, echo = TRUE}
+trueMale <- which(penguins$sex == "male")
+trueFemale <- which(penguins$sex == "female")
+
+nTrueMale <- length(trueMale)
+nTrueFemale <- length(trueFemale)
+
+# compute the sensitivity
+sensitivity <- sum(storage$YHat[trueMale] == "male") / nTrueMale
+sprintf("Sensitivity: %.3f", sensitivity)
+
+# compute the specificity
+specificity <- sum(storage$YHat[trueFemale] == "female") / nTrueFemale
+sprintf("Specificity: %.3f", specificity)
+
+# compute the geometric mean
+geomean <- sqrt(sensitivity * specificity)
+sprintf("Geometric Mean: %.3f", geomean)
+```
+
+sensitivity(true positive rate) = 128/(40 + 128) = 0.762 = 76.2%
+specificity(true negative rate) = 118/(47 + 118) = 0.715 = 71.5%
+$$geometric \ mean = \sqrt{sensitivity \times specificity} = \sqrt{0.762 \times 0.715} \approx 0.738$$
+
+By double validation, the sensitivity = 76.2%, specificity = 71.5%, geometric mean = 0.738

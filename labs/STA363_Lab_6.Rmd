@@ -1,0 +1,344 @@
+---
+title: "STA363_Lab_6"
+author: "Zishan Shao"
+date: "2022-10-11"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r}
+# import the dataset
+collegedata <- read.csv("~/Desktop/R_Labs/STA363/collegedata.csv")
+Y = collegedata$Grad.Rate
+```
+
+
+# Question 1:
+
+*Is this a regression or classification task? Based on this, what metric will we likely use to assess predictive accuracy?*
+
+**ANS: ** The graduation rate is a continuous response variable. Therefore, we are dealing with a regression task to make prediction based on features given. We are expected to use the root mean squared error (RMSE) or mean squared error (MSE), which we try to minimize the metric.
+
+
+# Question 2:
+
+*Make a visualization to explore the distribution of graduation rate. What is the smallest value of graduation rate? The largest?*
+
+**ANS: ** 
+
+```{r,fig.width=4.5,fig.height=2.5, fig.align='center'}
+# consider that the response variable Y is a continuous data, we are 
+# expected to use a histrogram to visualize its distribution.
+library(ggplot2)
+ggplot(collegedata, aes(x=Grad.Rate)) + geom_histogram(fill='yellow', col = 'black', bins = 20) + labs(title="Figure 1:", x = "College Graduation Rate (%)")
+
+summary(Y)
+```
+
+Based on the distribution of the Y, we could see that the smallest graduation rate is 10.0% and the maximum graduation rate is 100.0%.
+
+
+# Question 3:
+
+*Compute the MSE (training) and RMSE (training) for these data.*
+
+**ANS: ** 
+
+```{r}
+# compute the Ym
+Ym <- sum(Y) / length(Y)
+
+# compute the MSE based on the mean of the Y
+Y_Resid_Squared <- (Y - Ym)^2
+MSE <- sum(Y_Resid_Squared) /length(Y)
+
+RMSE <- sqrt(MSE)
+
+sprintf("The MSE: %f",MSE)
+sprintf("The RMSE: %f",RMSE)
+
+```
+
+Based on the outputs, MSE should be around 291.5, while the RMSE should be about 17.07.
+
+
+# Question 4:
+
+*Train an LSLR (OLS) regression model using the whole data set and the single feature X = the student faculty ratio. Find the MSE (training) and RMSE (training). How much has our training predictive accuracy improved from the values you got in Question 3?*
+
+**ANS: ** 
+
+```{r}
+# Train the LSLR regression model using the whole dataset
+gradsRate <- lm(Grad.Rate ~ S.F.Ratio, data = collegedata)
+summary(gradsRate)
+```
+
+The RMSE in this case is 16.26 and the MSE is about 264.39. Compared with the MSE in Q3, which is 291.5, it has been improved by (291.5 - 264.39) = 27.1124. For RMSE, it has been improved by about 0.814.
+
+
+# Question 5:
+
+*Which column in the data set cannot be used as a feature (aside from the response variable)? Explain why this column cannot be used.*
+
+**ANS: ** The first column, X, could not be used as a feature because it is the name of the school, which could not provide any explanation of the value of the graduation rate. 
+
+
+# Question 6:
+
+*Build a correlation plot (you can choose the styling you like best!) to explore the correlations in the features in this data set.*
+
+**ANS: **
+
+```{r, caption = "Figure 2: correlation plot"}
+# import necessary libraries
+library(corrplot)
+library(RColorBrewer)
+
+M <-cor(collegedata[,-c(1,2,ncol(collegedata))])
+corrplot(M, method="circle", type = "lower", title = "Figure 2: correlation plot", tl.pos = "ld", mar = c(0,0,1,0))
+```
+
+The correlation plot shows that some of the features are strongly related with each other.
+
+
+# Question 7:
+
+*Based on the plot in Question 6, why would you suggest we start with Ridge Regression instead of LSLR?*
+
+**ANS: ** From the correlation plot, there are some variables that are strongly related. For instance, the accepted applications and the enrolled students number, which has correlation more than 0.8. Due to this densely dependency of features, OLS may not perform well and we should use ridge regression, which is a penalized regression model.
+
+
+# Question 8:
+
+*Using the code above, create the design matrix. State the dimensions of this matrix.*
+
+**ANS: **
+
+```{r}
+library(glmnet)
+
+# designed matrix
+XD <- model.matrix(Grad.Rate ~ ., data = collegedata[,-1])
+dim(XD)
+```
+
+The dimension of the matrix is [776, 18].
+
+
+# Question 9:
+
+*Suppose we let lambda = 2. Adapting the code above, what is Beta_hat ridge?*
+
+**ANS: **
+
+```{r}
+library(glmnet)
+
+# Train Ridge
+ridge.model2<- glmnet(XD[,-1], collegedata$Grad.Rate, alpha = 0, 
+               lambda = 2, standardize = TRUE)
+
+# Print the coefficients
+Betas <- data.frame("Ridge" = as.numeric(coefficients(ridge.model2)))
+rownames(Betas) <- colnames(XD)
+knitr::kable(Betas,
+            caption = "Coefficients with Tuning Parameter = 2")
+```
+
+
+# Question 10:
+
+*What is the sum of the coefficients (excluding the intercept) when lambda=2? Why do we exclude the intercept? Well, the intercept is not actually penalized in ridge.*
+
+**ANS: ** 
+
+```{r}
+sprintf("The sum of the coefficients: %f", sum(ridge.model2$beta))
+```
+
+
+
+# Question 11:
+
+*Suppose we let lambda = 200. Adapting the code above, what is beta Ridge?*
+
+**ANS: **
+
+```{r}
+library(glmnet)
+
+# Train Ridge
+ridge.model3<- glmnet(XD[,-1], collegedata$Grad.Rate, alpha = 0, 
+               lambda = 200, standardize = TRUE)
+
+# Print the coefficients
+Betas <- data.frame("Ridge" = as.numeric(coefficients(ridge.model3)))
+rownames(Betas) <- colnames(XD)
+knitr::kable(Betas,
+            caption = "Coefficients with Tuning Parameter = 200")
+```
+
+# Question 12:
+
+*What is the sum of the coefficients (excluding the intercept) when lambda=200?*
+
+**ANS: ** 
+
+```{r}
+sprintf("The sum of the coefficients (lambda = 200): %f", sum(ridge.model3$beta))
+```
+
+
+# Question 13:
+
+*What do you notice happens to the sum of the coefficients as lambda increases?*
+
+**ANS: ** the sum of the coefficients decreased significantly from about 4.14 to 0.87. The lambda serve as a penalty term that essentially constains the size of the coefficients. 
+
+
+# Question 14:
+
+*Briefly explain the process of choosing the tuning parameter in ridge regression. Use words, not code!*
+
+**ANS: ** Top choose the tuning parameter, we need to use a loop to go through a range of possible values for the tuning parameter and choose the one of the value that the estimated $\hat{\beta}$ will minimize the RSS + shrinkage penalty ($RSS + \lambda\hat{\beta}^T\hat{\beta}$).
+
+
+
+# Question 15:
+
+*Why do we need to set a random seed here?*
+
+**ANS: ** This is because we used the cross validation technique in this case (cv stands for cross validation). Therefore, we need to set a seed so that the experiment was reproducable.
+
+```{r}
+set.seed(100)
+ridge.mod <- cv.glmnet(XD[,-1], collegedata$Grad.Rate, alpha = 0, lambda = seq(from = 0, to = 50, by = 0.05), standardize = TRUE)
+```
+
+
+# Question 16:
+
+*Why do we want to make sure to include $$\lambda$$ = 0 in our list of possible tuning parameters?*
+
+**ANS: ** The $\lambda$ = 0 is the case of ordinary linear regression. We add the $\lambda$ = 0 because we want to see if it is actually necessary to apply a penalized model. If the OLS works well, this means the features are not strongly correlated so we do not need a penalized model.
+
+
+
+```{r}
+ridgePlot <- function(ridge.mod, metric, title){
+  library(ggplot2)
+  
+  smallestLambda <- ridge.mod$lambda[which.min(ridge.mod$cvm)] 
+  
+  if(metric == "MSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = (ridge.mod$cvm))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test MSE values for Different Tuning Parameters. Smallest MSE at lambda = ", smallestLambda), title = title, y = "Test MSE", x = "Tuning Parameter")
+  
+  }
+  
+  if(metric == "RMSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = sqrt(ridge.mod$cvm))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test RMSE values for Different Tuning Parameters. Smallest RMSE at lambda = ", smallestLambda), title = title, y = "Test RMSE", x = "Tuning Parameter")
+
+  }
+  
+  g1
+}
+```
+
+
+
+# Question 17:
+
+*Plot your results using the code above, and show your result. Approximately what choice of lambda gives the best value of our test metric?*
+
+**ANS: ** 
+
+```{r}
+ridgePlot(ridge.mod, metric = "RMSE", title = "Figure 3: Ridge Plot of Model")
+```
+
+```{r}
+sprintf("Minimum of Lambda: %.2f", ridge.mod$lambda.min)
+```
+
+
+# Question 18:
+
+*Why might it be helpful to look at the plot instead of just using ridge.mod's lambda.min all the time?*
+
+**ANS: ** This is because we can see the trend of RMSE in changing value of the $\lambda$. The minimum value could, in some cases, be the lowest only because of the range limit (it could continue decrease later, which can be determined by the plot but not the minimum value). Therefore, the plot is also necessary along with the minimum value.
+
+
+# Question 19:
+
+*Using your choice of lambda, what is the estimated test RMSE?*
+
+**ANS: **
+
+```{r}
+sprintf("Estimated Test RMSE: %.2f",sqrt(min(ridge.mod$cvm)))
+```
+
+The minimum test MSE is 164.5418 for $\lambda$ = 2.7, so the RMSE is around 12.83.
+
+
+# Question 20:
+
+*How much has our RMSE improved from the values you got in Question 3? This allows us to see how much better our model does than using no feature information.*
+
+**ANS: ** The RMSE in Q3 is around 17.07, compared with 12.83 in Q19, it has been improved by 4.24.
+
+
+# Question 21:
+
+*Using the code above as a template, train your ridge regression model. Then, train the LSLR model using the same code template and call the result lslr.final. Once we have trained the model, we can make a data frame holding the coefficients for both LSLR and ridge using the following code. Show the resultant data frame as the answer to this question. Make sure you have formatted it using knitr::kable().*
+
+**ANS: **
+
+```{r}
+# train the ridge regression model
+library(glmnet)
+
+# Train Ridge
+ridge.final<- glmnet(XD[,-1], collegedata$Grad.Rate, alpha = 0, 
+               lambda = 2.7, standardize = TRUE)
+
+# train the LSLR model
+lslr.final <- lm(Grad.Rate ~ ., data = collegedata[,-1])
+
+# Print the coefficients
+ridge.betas <- as.numeric(coefficients(ridge.final))
+lslr.betas <- as.numeric(coefficients(lslr.final))
+BetasFinal <- data.frame("LSLR" = lslr.betas, "Ridge" = ridge.betas)
+rownames(BetasFinal) <- colnames(XD)
+
+knitr::kable(BetasFinal,
+            caption = "Final Coefficients")
+```
+
+
+# Question 22:
+
+*State the estimated test RMSE for both of the two trained models (LSLR or ridge regression). Which has the best predictive accuracy? By how much (in percent difference)?*
+
+**ANS: ** 
+
+```{r}
+# Run 10-fold CV for only the two choices of lambda
+set.seed(100)
+ridge.final.out <- cv.glmnet(XD[,-1], collegedata$Grad.Rate , alpha = 0 , lambda = c(0, 2.7), standardize = TRUE)
+# Output the test MSE
+aa <- ridge.final.out$cvm
+# Output the test RMSE
+b <- sqrt(aa)
+
+# percent difference:
+sprintf("Percent of Difference: %.2f ", (b[2] - b[1])/b[1]*100)
+```
+
+The RMSE of ridge regression is 12.83, while the RMSE of LSLR is 12.96. The ridge regression has the best performance by 1% difference.
+
