@@ -1,0 +1,441 @@
+---
+title: "STA363_Project_2"
+author: "Zishan Shao"
+date: "2022-10-20"
+output: pdf_document
+---
+
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(1)
+```
+
+
+```{r}
+# load the data from the dataset
+data <- read.csv("../Project_2/VRBO.csv", header = TRUE)
+```
+
+
+
+
+# Section 1: Introduction
+
+
+
+# Section 2: Data Cleaning
+
+
+### Data Loss Table
+
+```{r}
+# explore the number of observations before cleaning
+a = nrow(data)
+# explore the number of observations after cleaning
+b = nrow(na.omit(data))
+# total removed observations
+c = a - b
+
+# percentage of omitted rows to the total rows
+d = c / a * 100
+
+# construct a table for the data losses
+aa <- round(c(a,b,c,d), 2)
+names <- c("Original", "Cleaned", "Total Removal", "Percent Data Loss")
+
+hahaloss <- data.frame("Names" = names, "Count" = aa)
+
+knitr::kable(hahaloss, caption = "Data Loss Table (before & after cleaning)")
+```
+
+
+```{r}
+# explore the number of null values in the minstay
+# length(which(is.na(data$minstay)))
+
+# find the total number of residual
+e = nrow(na.omit(data[,-8])) # the num observation remain same as uncleaned data
+
+# table for cleaned data after removing minstay
+nomloss <- data.frame("Orignal" = a, "No Minstay" = e)
+
+knitr::kable(nomloss, caption = "Number of Observations (with/not with minstay)")
+```
+
+ 
+```{r, warning=FALSE, fig.align='center',fig.width=4.5,fig.height=3}
+# import the ggplot2 pacakge
+suppressMessages(library(ggplot2))
+# create a scatterplot to study the relationship between minstay and price
+ggplot(na.omit(data), aes(minstay, price)) + geom_point(color = "blue")+ labs(title =" ", x = "Minimum Nights to Stay (minstay)", y = "Price (in $)")
+```
+
+
+### Distribution of Response Variable
+
+```{r}
+# create the design matrix XD by removing the UnitNumber and the response variable Price
+dataClean <- data[,-c(1,8)]
+# head(dataClean)
+```
+
+```{r, fig.height=3, fig.width=6, fig.align='center', warning = FALSE}
+# import the ggplot2 package
+library(ggplot2)
+
+# cluster of mosaic plots
+op <- par( mfrow = c(1,2))
+
+# see if there is unreasonable observation
+ggplot(dataClean,aes(x ="Price", y = price)) + geom_boxplot(fill='gold', col = 'black') + labs(title="", x = "Rental Price (in $)", y = " ") + coord_flip()
+
+# consider that the response variable Y is a continuous data, we are 
+# expected to use a histogram to visualize its distribution.
+library(ggplot2)
+ggplot(dataClean, aes(x=price)) + geom_histogram(fill='cyan', col = 'black', bins = 20) + labs(title="", x = "Rental Price (in $)")
+
+par(op)
+```
+
+
+
+# Section 3: LSLR & ridge Regression
+
+
+$$LSLR: \boldsymbol{\hat{\beta_{LS}} = (X_D^TX_D)^{-1}X_D^TY}$$
+
+$$Ridge: \boldsymbol{\hat{\beta_{Ridge}} = (X_D^TX_D + \lambda_{ridge} I)^{-1}X_D^TY}$$
+
+
+### Correlation Plot
+
+```{r, fig.align='center',fig.width=3.6,fig.height=3.6}
+# import necessary libraries
+suppressMessages(library(corrplot))
+suppressMessages(library(RColorBrewer))
+
+# Explore the correlation between features
+M <-cor(dataClean[,-c(1, 4, 7, 8)])
+colnames(M)[1] <- "satisfaction"
+rownames(M)[1] <- "satisfaction"
+corrplot(M, method="circle", type = "upper", title = "", mar = c(0,0,1,0))
+```
+
+\begin{center}
+Figure 3.1: Correlation Plot
+\end{center}
+
+
+```{r}
+suppressMessages(library(glmnet))
+
+# designed matrix
+XD <- model.matrix(price ~ ., data = dataClean)
+# dim(XD)
+```
+
+
+
+### Tuning Parameter (Ridge)
+
+
+```{r}
+# Run ridge Regression
+suppressMessages(library(glmnet))
+set.seed(1)
+cv.out.ridge <- cv.glmnet(XD[,-1], dataClean$price, alpha = 0,lambda = seq(from = 0, to = 100, by = .5))
+
+# Default plot
+# plot(cv.out.ridge)
+```
+
+
+```{r}
+# The plot in ggplot2 Dr. Dalzell built
+ridgePlot <- function(ridge.mod, metric, title){
+  library(ggplot2)
+  
+  smallestLambda <- ridge.mod$lambda[which.min(ridge.mod$cvm)] 
+  
+  if(metric == "MSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = (ridge.mod$cvm))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test MSE values for Different Tuning Parameters. Smallest MSE at lambda = ", smallestLambda), title = title, y = "Test MSE", x = "Tuning Parameter")
+  
+  }
+  
+  if(metric == "RMSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = sqrt(ridge.mod$cvm))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test RMSE values for Different Tuning Parameters. Smallest RMSE at lambda = ", smallestLambda), title = title, y = "Test RMSE", x = "Tuning Parameter")
+
+  }
+  
+  g1
+}
+```
+
+```{r, fig.align='center',fig.width=6,fig.height=4}
+#Plotting using ggplot2
+ridgePlot(cv.out.ridge, metric = "MSE", title = "") + theme(text = element_text(size = 12))
+```
+
+\begin{center}
+Figure 3.2: Test MSE vs Tuning Parameter of Ridge Regression model
+\end{center}
+
+
+```{r}
+# Metrics
+
+# Run the process again (same seed) with only the two lambdas of interest
+set.seed(1)
+cv.out.ridge.small <- cv.glmnet(XD[,-1], dataClean$price, alpha = 0,lambda = c(0,14.5))
+# print("Lambda: ")
+# cv.out.ridge.small$lambda
+# print("MSE: ")
+# cv.out.ridge.small$cvm
+# print("RMSE: ")
+# sqrt(cv.out.ridge.small$cvm)
+
+# construct a matrix to store the output values
+show <- matrix(data = c(cv.out.ridge.small$lambda, cv.out.ridge.small$cvm, sqrt(cv.out.ridge.small$cvm)), nrow = 2, ncol = 3)
+
+# name the rows and columns
+rownames(show) <- c("Ridge", "LSLR")
+colnames(show) <- c("Lambda", "Test MSE", "Test RMSE")
+
+# construct a table to show the output
+knitr::kable(show, caption = "Metrics of LSLR vs Ridge")
+```
+
+
+\pagebreak
+
+### Evaluation
+
+```{r}
+# ridge regression lambda = 14.5
+
+# we need to remove the first row of XD as glmnet will add another line for coefficient
+reg.ridge <- glmnet(XD[,-1], dataClean$price, alpha = 0,lambda = 14.5, standardize =TRUE)
+# LSLR lambda = 0 
+reg.LSLR <- glmnet(XD[,-1], dataClean$price, alpha = 0,lambda = 0, standardize = TRUE)
+Betas <- data.frame("LSLR" = as.numeric(coefficients(reg.LSLR)), "ridge" = as.numeric(coefficients(reg.ridge)))
+rownames(Betas) <- colnames(XD)
+
+# compute the MSE for Ridge and LSLR
+MSE <- mean( (data$price - predict(reg.LSLR, newx = XD[,-1]))^2)
+MSEr <- mean( (data$price - predict(reg.ridge, newx = XD[,-1]))^2)   
+
+#reg.LSLR$beta
+#coefficients(reg.LSLR)
+
+knitr::kable(round(Betas, 3),
+            caption = "Coefficients with Tuning Parameter = 0, 14.5")
+
+# construct a matrix to store the output values
+show2 <- matrix(data = c(cv.out.ridge.small$lambda, MSEr, MSE, abs(sum(reg.ridge$beta)), abs(sum(reg.LSLR$beta))), nrow = 2, ncol = 3)
+
+# name the rows and columns
+rownames(show2) <- c("Ridge", "LSLR")
+# in this case, it should be MSE, as it is for training model
+colnames(show2) <- c("Lambda", "MSE", "Sum Coefficients (abs)")
+
+# construct a table to show the output
+knitr::kable(round(show2,1), caption = "Metrics of LSLR vs Ridge")
+```
+
+
+
+# Section 4: Lasso
+
+ 
+### Tuning Parameter (Lasso)
+  
+  
+```{r, fig.height=4, fig.width=6, fig.align='center', warning = FALSE}
+# import the ggplot2 package
+library(ggplot2)
+
+# Run 10-fold CV
+set.seed(1)
+cv.out.lasso <- cv.glmnet(XD[,-1], dataClean$price, alpha = 1,lambda = seq(from = 0, to = 100, by = .5))  # alpha = 1 is the lasso
+
+# Use a smaller range
+cv.out.lasso2 <- cv.glmnet(XD[,-1], dataClean$price, alpha = 1,lambda = seq(from = 0, to = 25, by = .5))
+
+
+# cluster of mosaic plots
+op <- par( mfrow = c(2,1))
+
+# Plot the results using the default plotting tool
+# plot(cv.out.lasso)
+
+
+#Plotting using ggplot2
+ridgePlot(cv.out.lasso, metric = "MSE", title = "") + theme(text = element_text(size = 12))
+
+# Use a smaller range
+ridgePlot(cv.out.lasso2, metric = "MSE", title = "") + theme(text = element_text(size = 12))
+
+par(op)
+```
+
+\begin{center}
+Figure 4.1: Test MSE vs Tuning Parameter of Lasso Regression model
+\end{center}
+
+
+ 
+```{r}
+# Choosing the lambda we want
+cv.out.lasso$lambda.min
+```
+
+
+### Evaluation
+
+```{r}
+# Obtaining coefficients
+
+# Train Lasso
+reg.lasso <- glmnet(XD[,-1], dataClean$price, alpha =1 ,
+                      lambda = 0.5)
+
+# Store the coefficients
+lasso_betas <- as.numeric(coefficients(reg.lasso))
+
+# Create a data frame
+# Betas <- data.frame("LSLR" = lslr.betas, "ridge" = ridge.betas, "Lasso" = lasso.betas)
+
+Betas_pro <- cbind(Betas, "Lasso" = lasso_betas)
+
+rownames(Betas) <- colnames(XD)
+
+knitr::kable(round(Betas_pro, 3), caption = "Coefficients Table of LSLR, Ridge, Lasso")
+```
+
+
+```{r}
+# coefficients equals zero
+# length(which(lasso_betas == 0))
+```
+
+
+```{r}
+# MSE of the trained lasso
+MSEl <- mean( (data$price - predict(reg.lasso, newx = XD[,-1]))^2)
+# MSEl
+# sum(reg.lasso$beta)
+```
+
+
+
+# Section 5: Elastic Net
+
+
+### Tuning Parameters (Elastic Net)
+
+
+```{r}
+# Choose a sequence of values for alpha 
+alphaseq <- seq(from = 0, to =1 , by =.01)
+
+storageEN <- data.frame("Alpha" = rep(NA,length(alphaseq)), "Lambda" = rep(NA,length(alphaseq)), "MSE" = rep(NA,length(alphaseq)))
+
+a = 1 
+# Run 10-fold CV
+set.seed(1)
+for( i in alphaseq ){
+  cv.out <- cv.glmnet(XD[ , -1], dataClean$price, alpha = i,lambda = seq(from = 0, to = 25, by = .5))
+  storageEN$Lambda[a] <- cv.out$lambda.min  # store the optimal lambda at this alpha
+  storageEN$MSE[a] <- (min(cv.out$cvm))  # store the test MSE
+  storageEN$Alpha[a] <- i  # store the alpha
+  a = a + 1 
+}
+```
+
+
+
+```{r}
+# The plot in ggplot2 Dr. Dalzell built
+elasticNetPlot <- function(ridge.mod, metric, title){
+  library(ggplot2)
+  
+  smallestLambda <- ridge.mod$Lambda[which.min(ridge.mod$MSE)] 
+  smallestAlpha <- ridge.mod$Alpha[which.min(ridge.mod$MSE)] 
+  
+  if(metric == "MSE"){
+  g1 <- ggplot( data.frame(ridge.mod$Alpha), aes( x = ridge.mod$Alpha, y = (ridge.mod$MSE))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Smallest alpha = ", smallestAlpha,". Smallest MSE at lambda = ", smallestLambda), title = title, y = "Test MSE", x = "Tuning Parameter")
+  
+  }
+  
+  if(metric == "RMSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = sqrt(ridge.mod$MSE))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test RMSE values for Different Tuning Parameters. Smallest RMSE at lambda = ", smallestLambda), title = title, y = "Test RMSE", x = "Tuning Parameter")
+
+  }
+  
+  g1
+}
+```
+
+```{r, fig.height=4, fig.width=6, fig.align='center', warning = FALSE}
+elasticNetPlot(storageEN, "MSE", " ") + theme(text = element_text(size = 15))
+```
+
+\begin{center}
+Figure 5.1: Test MSE vs Tuning Parameters of Elastic Net Model
+\end{center}
+
+
+```{r}
+# Show the results
+# knitr::kable(round(storageEN,2), caption = "Performance of Elastic Net")
+```
+
+### Training the Elastic Net
+
+```{r}
+# Obtaining coefficients
+
+# Train Elastic Net
+reg.elastic <- glmnet(XD[,-1], dataClean$price, alpha =1 ,
+                      lambda = 0.5)
+
+# Store the coefficients
+elastic.betas <- as.numeric(coefficients(reg.elastic))
+
+# Create a data frame
+Betas <- data.frame("LSLR" = as.numeric(coefficients(reg.LSLR)), "Ridge" = as.numeric(coefficients(reg.ridge)), "Lasso" = as.numeric(coefficients(reg.lasso)), "Elastic" = elastic.betas)
+
+rownames(Betas) <- colnames(XD)
+
+knitr::kable(Betas)
+```
+
+### Evaluation
+
+```{r}
+# MSE of the trained elastic net
+# MSEen <- mean( (data$price - predict(reg.elastic, newx = XD[,-1]))^2)
+# MSEl
+# sum(reg.elastic$beta)
+```
+
+
+# Section 6: Comparison and Conclusions
+
+### Summary Table
+
+```{r, warning=FALSE}
+# construct a matrix to store the output values for summary table
+# because beta does not include the intercept, so we should also add it to the number of features
+show3 <- matrix(data = c(reg.lasso$lambda, reg.ridge$lambda, reg.LSLR$lambda, MSEl, MSEr,MSE, abs(sum(reg.lasso$beta)), abs(sum(reg.ridge$beta)), abs(sum(reg.LSLR$beta)), length(reg.lasso$beta) - length(which(reg.lasso$beta == 0)), length(reg.ridge$beta) , length(reg.LSLR$beta)), nrow = 3, ncol = 4)
+
+# name the rows and columns
+rownames(show3) <- c("Lasso", "Ridge", "LSLR")
+# metric names
+colnames(show3) <- c("Lambda", "MSE", "Sum Coefficients (abs)", "Num Features")
+
+# construct a table to show the output
+knitr::kable(round(show3,1), caption = "Summary Table: Lasso vs Ridge vs LSLR")
+```
+

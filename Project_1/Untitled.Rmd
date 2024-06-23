@@ -1,0 +1,17 @@
+---
+title: "STA363_Project_1"
+author: "Zishan Shao"
+date: "2022-09-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+```
+
+

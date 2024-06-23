@@ -1,0 +1,551 @@
+---
+title: "STA363 Project 2"
+author: "Zishan Shao"
+date: "2022-10-20"
+output: pdf_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+set.seed(1)
+```
+
+
+```{r}
+# load the data from the dataset
+data <- read.csv("../Project_2/VRBO.csv", header = TRUE)
+```
+
+
+\pagebreak
+
+
+\begin{abstract}
+
+Short-term lending of the house for vacation is becoming a trending business, and price evaluation of rented houses becomes increasingly important. The main purpose of this report was to construct a statistical model that could efficiently provide the price for renting services by VRBO.  The data proceeded in this report was from the past rentals information of the VRBO and consisted of 1561 with 13 features (both categorical and numerical) and price as the response variable to be predicted. We applied the least-square linear regression model (LSLR), ridge regression model, lasso regression model, and the elastic net. Considering the size of the sample data, we applied the 10-fold cross-validation technique to train and test the model. We then find the test MSE of the series of models and explore the optimal solution that maximizes the likelihood. The model will be chosen based on simplicity and accuracy (measured by the MSE). The final results indicate that the ridge regression model provides the most accurate predictive result, while the lasso regression model provides comparable accuracy with the least complexity. Our final recommendation is the lasso regression model.
+
+
+
+\end{abstract}
+
+
+
+
+
+
+
+\pagebreak
+
+
+\tableofcontents
+
+
+\pagebreak
+
+
+
+
+
+# Section 1: Introduction
+
+  With the popularization of applications such as Airbnb, an increasing proportion of non-professionals post their houses/apartments online for short-term renting. However, the veracity of the renters and houses post challenges for the platform to determine the rental prices. It is unfeasible to set a general price because the houses/apartments vary in location, size, quality, etc. Therefore, it is essential to set an evaluation system to determine a relatively legitimate price. 
+
+  In this report, we are working with the rental data from the VRBO. The main service of the company was allowing individuals to make short-term rentals of their apartments. However, the houses vary a lot in their qualities, locations, size, etc. Therefore, the main purpose of the report was to offer predictions of rental prices for VRBO's customers.  
+
+  The data was consisted of 1561 past rentals information with 13 features (both categorical and numerical) and price as the response variable (as we aim to estimate the price). The model was based on two assumptions:
+  
+\begin{itemize}
+  \item  The rental price was related to the basic conditions of the house and there are patterns to be traced.
+  \item  The sample data is the representative of the population set, which means the model could be applied to the actual data and should not be overly biased. 
+\end{itemize}
+  
+  Because the house price is a numerical variable, so we are dealing with a regression problem. While the least-square linear regression model was the most basic and commonly used linear regression model, it has difficulties in dealing with correlated features, so penalized regression models such as ridge regression are also considered. The models will be evaluated with the mean-squared error (MSE) and simplicity. 
+
+
+# Section 2: Data Cleaning
+
+In this section, we explore the observations with missing data and evaluate the features with their traits. Based on the analysis, there are 138 observations containing missing information, which could lead to computational problems in model building. 
+
+### Data Loss Table
+
+```{r}
+# explore the number of observations before cleaning
+a = nrow(data)
+# explore the number of observations after cleaning
+b = nrow(na.omit(data))
+# total removed observations
+c = a - b
+
+# percentage of omitted rows to the total rows
+d = c / a * 100
+
+# construct a table for the data losses
+aa <- c("1561",b,c,round(d, 2))   # manually written the "1561" so the count will be integers
+names <- c("Original", "Cleaned", "Total Removal", "Percent Data Loss (%)")
+
+hahaloss <- data.frame("Names" = names, "Count" = aa)
+
+knitr::kable(hahaloss, caption = "Data Loss Table (before & after cleaning)")
+```
+
+  Removing observations with missing values is a commonly applied approach. However, it will inevitably cause a reduction in the size of training data. In this case, the observations to be removed consisted of around 8.84% of total observations, which is a considerable size of data loss. In the worst case, it could increase the difficulty of capturing the general pattern of the data and cause inaccuracy in prediction. 
+
+
+```{r}
+# explore the number of null values in the minstay
+# length(which(is.na(data$minstay)))
+
+# find the total number of residual
+e = nrow(na.omit(data[,-8])) # the num observation remain same as uncleaned data
+
+# table for cleaned data after removing minstay
+nomloss <- data.frame("Orignal" = a, "No Minstay" = e)
+
+knitr::kable(nomloss, caption = "Number of Observations (with/not with minstay)")
+```
+
+  Interestingly, the distribution of the missing information indicates that the feature \textit{minimum nights (minstay)} contains all the missing values. After removing the \textit{minimum nights}, the cleaned data has an identical number of observations with the original data. Therefore, it is possible to keep the size of the data by removing the \textit{minimum nights}.
+  
+  However, the second approach could only be applicable if the feature to be removed is loosely related to the response variable. If it is strongly related to the response variable, removing the feature could severely undermine the predictive accuracy of the model. Therefore, we construct plots to explore the relationship between the \textit{minimum nights} and the response variable.
+  
+```{r, warning=FALSE, fig.align='center',fig.width=4.5,fig.height=3}
+# import the ggplot2 pacakge
+suppressMessages(library(ggplot2))
+# create a scatterplot to study the relationship between minstay and price
+ggplot(na.omit(data), aes(minstay, price)) + geom_point(color = "blue")+ labs(title =" ", x = "Minimum Nights (minstay)", y = "Price (in $)")
+```
+
+\begin{center}
+Figure 2.1: Minimum Nights vs Price (in \$)
+\end{center}
+
+  Figure 2.1 indicates there is not a strong linear relationship between the price and minimum nights. Hence, approach two is applicable in this case.
+
+  Noticing that the UnitNumber is a categorical feature that assigns an unique value to all observations, so it is impossible to find a pattern between the UnitNumber and the Price. Therefore, we should remove the UnitNumber.
+
+
+### Distribution of Response Variable
+
+```{r}
+# create the design matrix XD by removing the UnitNumber and the response variable Price
+dataClean <- data[,-c(1,8)]
+# head(dataClean)
+```
+
+```{r, fig.height=3, fig.width=6, fig.align='center', warning = FALSE}
+# import the ggplot2 package
+library(ggplot2)
+
+# cluster of mosaic plots
+op <- par( mfrow = c(1,2))
+
+# see if there is unreasonable observation
+ggplot(dataClean,aes(x ="Price", y = price)) + geom_boxplot(fill='gold', col = 'black') + labs(title="", x = "Rental Price (in $)", y = " ") + coord_flip()
+
+# consider that the response variable Y is a continuous data, we are 
+# expected to use a histogram to visualize its distribution.
+library(ggplot2)
+ggplot(dataClean, aes(x=price)) + geom_histogram(fill='cyan', col = 'black', bins = 20) + labs(title="", x = "Rental Price (in $)")
+
+par(op)
+```
+
+\begin{center}
+Figure 2.2: Distribution of Response Variable (\textit{Price} in \$)
+\end{center}
+
+Figure 2.2 indicates that the distribution of the price in the data, although skewed, is reasonable since the conditions of the houses vary significantly. It is a unimodal distribution and there are no obvious outliers in the data that could impact the predictive capacity of the model. 
+
+
+\pagebreak
+
+
+# Section 3: LSLR & Ridge Regression
+
+In this part, the least-square linear regression (LSLR) and the ridge regression will both be trained and evaluated. The difference between the LSLR and the ridge is that, while LSLR obtains the optimal $\hat{\beta}$ through minimizing the residual sum squared (RSS), which simultaneously maximized the likelihood of the model, the ridge considers both the MSE and the coefficients $\hat{\beta_{ridge}}$. The closed form of both are listed below:
+
+$$LSLR: \boldsymbol{\hat{\beta_{LS}} = (X_D^TX_D)^{-1}X_D^TY}$$
+
+$$Ridge: \boldsymbol{\hat{\beta_{Ridge}} = (X_D^TX_D + \lambda_{Ridge} I)^{-1}X_D^TY}$$
+
+  The penalty factor $\lambda \hat{\beta}^T\hat{\beta}$ limits the size of the coefficients while minimizing the RSS. $\lambda$, as the tuning parameter of the ridge regression, controls the extent of shrinkage. Thus, ridge regression effectively constrains the variances of the model caused by correlated features (which lead to exploding variance due to a small determinant of the design matrix). 
+
+  To determine the optimal value of the $\lambda$, we first select a range of possible values for the tuning parameter $\lambda$, plot them and choose the one with the lowest test MSE, the range of $\lambda$ should include 0 as part of the choice, which is the case of LSLR. 
+  
+  Although not required, the LSLR was included to serve as the base case of the models. By comparison, it is more convenient to observe the effectiveness of the penalized regression models in shrinking the coefficients.
+  
+
+### Correlation Plot
+
+```{r, fig.align='center',fig.width=3.6,fig.height=3.6}
+# import necessary libraries
+suppressMessages(library(corrplot))
+suppressMessages(library(RColorBrewer))
+
+# Explore the correlation between features
+M <-cor(dataClean[,-c(1, 4, 7, 8)])
+colnames(M)[1] <- "satisfaction"
+rownames(M)[1] <- "satisfaction"
+corrplot(M, method="circle", type = "upper", title = "", mar = c(0,0,1,0))
+```
+
+\begin{center}
+Figure 3.1: Correlation Plot between features
+\end{center}
+
+  Based on the correlation plot, the \textit{WalkScore - BikeScore, bedrooms - accommodates, and PctRentals - WalkScore}, are linearly correlated (with a correlation larger than or approximately equal to 0.5). This means that, in this case, a penalized regression technique might be necessary.
+
+  To apply the ridge regression, we need to create the designed matrix in form of $\boldsymbol{X_D = [1 \ \ \ X]_{(n \times p)}}$ that includes all features (both categorical and numerical) and intercept. The \textbf{X} is the features in matrix form.
+
+
+```{r}
+suppressMessages(library(glmnet))
+
+# designed matrix
+XD <- model.matrix(price ~ ., data = dataClean)
+# dim(XD)
+```
+
+
+
+### Tuning Parameter (Ridge)
+
+  We explore the optimal tuning parameter $\lambda$ with a range of 0 to 100, with 0.5 for each interval, the 10-fold cross-validation technique is applied to find the $\hat{\beta_{ridge}}$ that has the smallest test mean-squared error (MSE). The MSE is the mean of RSS after averaging through the number of observations. The minimum MSE indicates that, at this value of $\lambda$, the model performs the best because the estimates have the least difference from the actual value. For every $\lambda$ there should be an optimal model with the least test MSE, and we can then choose the best $\lambda$ by selecting through the set of optimal models. Via the cross-validation technique, we could also avoid choosing the $\lambda$ in an overly large value and overshrink the coefficients.
+
+
+```{r}
+# Run ridge Regression
+suppressMessages(library(glmnet))
+set.seed(1)
+cv.out.ridge <- cv.glmnet(XD[,-1], dataClean$price, alpha = 0,lambda = seq(from = 0, to = 100, by = .5))
+
+# Default plot
+# plot(cv.out.ridge)
+```
+
+
+```{r}
+# The plot in ggplot2 Dr. Dalzell built
+ridgePlot <- function(ridge.mod, metric, title){
+  library(ggplot2)
+  
+  smallestLambda <- ridge.mod$lambda[which.min(ridge.mod$cvm)] 
+  
+  if(metric == "MSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = (ridge.mod$cvm))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test MSE values for Different Tuning Parameters. Smallest MSE at lambda = ", smallestLambda), title = title, y = "Test MSE", x = "Tuning Parameter")
+  
+  }
+  
+  if(metric == "RMSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = sqrt(ridge.mod$cvm))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test RMSE values for Different Tuning Parameters. Smallest RMSE at lambda = ", smallestLambda), title = title, y = "Test RMSE", x = "Tuning Parameter")
+
+  }
+  
+  g1
+}
+```
+
+```{r, fig.align='center',fig.width=6,fig.height=4}
+#Plotting using ggplot2
+ridgePlot(cv.out.ridge, metric = "MSE", title = "") + theme(text = element_text(size = 12))
+```
+
+\begin{center}
+Figure 3.2: Test MSE vs Tuning Parameter of Ridge Regression model
+\end{center}
+
+  Based on the result of the cross-validation, we could see that the $\hat{\beta_{ridge}}$ with the smallest test MSE is obtained at $\lambda$ = 14.5. Therefore, we should select 14.5 as the value for training the ridge regression model.
+  
+\pagebreak
+
+```{r}
+# Metrics
+
+# Run the process again (same seed) with only the two lambdas of interest
+set.seed(1)
+cv.out.ridge.small <- cv.glmnet(XD[,-1], dataClean$price, alpha = 0,lambda = c(0,14.5))
+# print("Lambda: ")
+# cv.out.ridge.small$lambda
+# print("MSE: ")
+# cv.out.ridge.small$cvm
+# print("RMSE: ")
+# sqrt(cv.out.ridge.small$cvm)
+
+# construct a matrix to store the output values
+show <- matrix(data = c(cv.out.ridge.small$lambda, cv.out.ridge.small$cvm, sqrt(cv.out.ridge.small$cvm)), nrow = 2, ncol = 3)
+
+# name the rows and columns
+rownames(show) <- c("Ridge", "LSLR")
+colnames(show) <- c("Lambda", "Test MSE", "Test RMSE")
+
+# construct a table to show the output
+knitr::kable(show, caption = "Metrics of LSLR vs Ridge")
+```
+
+
+### Model Training & Evaluation
+
+```{r}
+# ridge regression lambda = 14.5
+
+# we need to remove the first row of XD as glmnet will add another line for coefficient
+reg.ridge <- glmnet(XD[,-1], dataClean$price, alpha = 0,lambda = 14.5, standardize =TRUE)
+# LSLR lambda = 0 
+reg.LSLR <- glmnet(XD[,-1], dataClean$price, alpha = 0,lambda = 0, standardize = TRUE)
+Betas <- data.frame("LSLR" = as.numeric(coefficients(reg.LSLR)), "ridge" = as.numeric(coefficients(reg.ridge)))
+rownames(Betas) <- colnames(XD)
+
+# compute the MSE for Ridge and LSLR
+MSE <- mean( (data$price - predict(reg.LSLR, newx = XD[,-1]))^2)
+MSEr <- mean( (data$price - predict(reg.ridge, newx = XD[,-1]))^2)   
+
+#reg.LSLR$beta
+#coefficients(reg.LSLR)
+
+knitr::kable(round(Betas, 3),
+            caption = "Coefficients with Tuning Parameter = 0, 14.5")
+
+# construct a matrix to store the output values
+show2 <- matrix(data = c(cv.out.ridge.small$lambda, MSEr, MSE, abs(sum(reg.ridge$beta)), abs(sum(reg.LSLR$beta))), nrow = 2, ncol = 3)
+
+# name the rows and columns
+rownames(show2) <- c("Ridge", "LSLR")
+# in this case, it should be MSE, as it is for training model
+colnames(show2) <- c("Lambda", "MSE", "Sum Coefficients (abs)")
+
+# construct a table to show the output
+knitr::kable(round(show2,1), caption = "Metrics of LSLR vs Ridge")
+```
+
+  The final training result shows that the LSLR has a smaller MSE but the difference was minor compared to the size of both MSEs. However, the ridge regression has a significantly smaller sum of coefficients in absolute value (71.2) compared with 510.6 for LSLR. This means the ridge regression has attained comparable accuracy with prominently less variance and coefficients. 
+
+  Although penalizing the coefficients introduces biases in the model, it could effectively limit the variance of the model (indicated by the sum of coefficients). In other words, the unbiasedness of the LSLR was sacrificed to limit the variance of the model. 
+  
+  Nonetheless, ridge regression has drawbacks. For the ridge regression, only shrinkage was performed, and the model had to retain all features in the design matrix. In this case, there are 60 features in total, which increases the complexity of the model. Moreover, the complexity of the model is proportional to the required size of data necessary to effectively capture the pattern of the data. Therefore, ridge regression could be inaccurate due to the limited size of the customer data.
+
+
+\pagebreak
+
+
+# Section 4: Lasso
+
+  Considering the number of features included in the model, the model is expected to be difficult to interpret. Therefore, it is necessary to reduce the complexity by selecting the most influential features while limiting the coefficients. In other words, we are expected to conduct \textit{shrinkage} and \textit{selection}. 
+ 
+  The lasso regression could fulfill our requirement. Lasso regression minimizes $RSS \ + \ \lambda_{lasso}\mid\hat{\beta} \ \mid$, which enables the system to set the coefficients of less important features to zero, and thus performed the selection along with shrinkage.
+  
+### Tuning Parameter (Lasso)
+  
+  Similar to ridge regression, we use the 10-fold cross-validation technique to train and test models with a range of $\lambda$. The range of $\lambda$ is the same as the one for ridge regression and the best model, similarly, will be selected with $\lambda$ that provides the minimal test MSE. 
+  
+```{r, fig.height=4, fig.width=6, fig.align='center', warning = FALSE}
+# import the ggplot2 package
+library(ggplot2)
+
+# Run 10-fold CV
+set.seed(1)
+cv.out.lasso <- cv.glmnet(XD[,-1], dataClean$price, alpha = 1,lambda = seq(from = 0, to = 100, by = .5))  # alpha = 1 is the lasso
+
+# Use a smaller range
+cv.out.lasso2 <- cv.glmnet(XD[,-1], dataClean$price, alpha = 1,lambda = seq(from = 0, to = 25, by = .5))
+
+
+# cluster of mosaic plots
+op <- par( mfrow = c(2,1))
+
+# Plot the results using the default plotting tool
+# plot(cv.out.lasso)
+
+
+#Plotting using ggplot2
+ridgePlot(cv.out.lasso, metric = "MSE", title = "Lambda Range 0 ~ 100") + theme(text = element_text(size = 12))
+
+# Use a smaller range
+ridgePlot(cv.out.lasso2, metric = "MSE", title = "Lambda Range 0 ~ 25") + theme(text = element_text(size = 12))
+
+par(op)
+```
+
+\begin{center}
+Figure 4.1: Test MSE vs Tuning Parameter of Lasso Regression model
+\end{center}
+
+
+  Figure 4.1 indicates that the optimal $\lambda$, in this case, should be 0.5, so we should train the lasso regression model by setting the $\lambda$ = 0.5. We obtain the betas of the lasso and add them to the coefficients table.
+
+```{r}
+# Choosing the lambda we want
+# cv.out.lasso$lambda.min
+```
+
+
+### Evaluation
+
+```{r}
+# Obtaining coefficients
+
+# Train Lasso
+reg.lasso <- glmnet(XD[,-1], dataClean$price, alpha =1 ,
+                      lambda = 0.5)
+
+# Store the coefficients
+lasso_betas <- as.numeric(coefficients(reg.lasso))
+
+# Create a data frame
+# Betas <- data.frame("LSLR" = lslr.betas, "ridge" = ridge.betas, "Lasso" = lasso.betas)
+
+Betas_pro <- cbind(Betas, "Lasso" = lasso_betas)
+
+rownames(Betas) <- colnames(XD)
+
+knitr::kable(round(Betas_pro, 3), caption = "Coefficients Table of LSLR, Ridge, Lasso")
+```
+
+
+```{r}
+# coefficients equals zero
+# length(which(lasso_betas == 0))
+```
+
+
+```{r}
+# MSE of the trained lasso
+MSEl <- mean( (data$price - predict(reg.lasso, newx = XD[,-1]))^2)
+# MSEl
+# sum(reg.lasso$beta)
+```
+
+  The trained Lasso regression obtained an MSE of 3459.3, which is slightly higher than the LSLR model. However, the lasso regression assigned 22 features as zero coefficients. This implies that the lasso regression attained similar accuracy as the ridge regression and LSLR with 22 fewer features. Moreover, the shrinkage by lasso regression is improved. The lasso regression achieved a sum of around 34.3 compared to the 71.2 obtained by the ridge regression. This means the lasso limits the variance of the model more effectively.
+
+  Regarding the purpose of this report, comparable accuracy after feature reduction provides us with a more interpretative, trainable model. For the predictive purpose, lasso regression outperforms ridge regression and LSLR.
+  
+
+# Section 5: Elastic Net
+
+  An elastic net is a generalized form of ridge and Lasso regressions. It introduced the $\alpha$ as the tuning parameter, which it minimizes $RSS \ + \ \lambda \sum ((1 - \alpha)\hat{\beta_j}^2 + \alpha\mid\hat{\beta_j} \mid)$, where $\lambda \geq 0$ and  $\alpha \geq 0$ are scalars. Elastic Net balances through ridge and Lasso regressions, taking advantage of both by tuning the $\alpha$. 
+
+
+### Tuning Parameters (Elastic Net)
+
+  To select the $\alpha$ and $\lambda$ that minimize the \textit{RSS + Penalty Factor}, we apply the 10-fold cross-validation technique. Provided that two tuning parameters are required to be chosen, iteratively matching each value of $\alpha$ and $\lambda$ is necessary to select the optimal pair. 
+  
+```{r}
+# Choose a sequence of values for alpha 
+alphaseq <- seq(from = 0, to =1 , by =.01)
+
+storageEN <- data.frame("Alpha" = rep(NA,length(alphaseq)), "Lambda" = rep(NA,length(alphaseq)), "MSE" = rep(NA,length(alphaseq)))
+
+a = 1 
+# Run 10-fold CV
+set.seed(1)
+for( i in alphaseq ){
+  cv.out <- cv.glmnet(XD[ , -1], dataClean$price, alpha = i,lambda = seq(from = 0, to = 25, by = .5))
+  storageEN$Lambda[a] <- cv.out$lambda.min  # store the optimal lambda at this alpha
+  storageEN$MSE[a] <- (min(cv.out$cvm))  # store the test MSE
+  storageEN$Alpha[a] <- i  # store the alpha
+  a = a + 1 
+}
+```
+
+
+
+```{r}
+# The plot in ggplot2 Dr. Dalzell built
+elasticNetPlot <- function(ridge.mod, metric, title){
+  library(ggplot2)
+  
+  smallestLambda <- ridge.mod$Lambda[which.min(ridge.mod$MSE)] 
+  smallestAlpha <- ridge.mod$Alpha[which.min(ridge.mod$MSE)] 
+  
+  if(metric == "MSE"){
+  g1 <- ggplot( data.frame(ridge.mod$Alpha), aes( x = ridge.mod$Alpha, y = (ridge.mod$MSE))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Smallest alpha = ", smallestAlpha,". Smallest MSE at lambda = ", smallestLambda), title = title, y = "Test MSE", x = "Tuning Parameter")
+  
+  }
+  
+  if(metric == "RMSE"){
+  g1 <- ggplot( data.frame(ridge.mod$lambda), aes( x = ridge.mod$lambda, y = sqrt(ridge.mod$MSE))) + geom_point() + geom_vline( xintercept = smallestLambda, col = "blue" , lty = 2 ) +  labs(caption = paste("Test RMSE values for Different Tuning Parameters. Smallest RMSE at lambda = ", smallestLambda), title = title, y = "Test RMSE", x = "Tuning Parameter")
+
+  }
+  
+  g1
+}
+```
+
+```{r, fig.height=4, fig.width=6, fig.align='center', warning = FALSE}
+elasticNetPlot(storageEN, "MSE", " ") + theme(text = element_text(size = 15))
+```
+
+\begin{center}
+Figure 5.1: Test MSE vs Tuning Parameters of Elastic Net Model
+\end{center}
+
+Figure 5.1 indicates that the optimal pair of ($\alpha$, $\lambda$) is (1.0, 0.5).
+
+```{r}
+# Show the results
+# knitr::kable(round(storageEN,2), caption = "Performance of Elastic Net")
+```
+
+
+\pagebreak
+
+
+### Training the Elastic Net
+
+```{r}
+# Obtaining coefficients
+
+# Train Elastic Net (with lambda = 0.5, alpha = 1)
+reg.elastic <- glmnet(XD[,-1], dataClean$price, alpha =1 ,
+                      lambda = 0.5)
+
+# Store the coefficients
+elastic.betas <- as.numeric(coefficients(reg.elastic))
+
+# Create a data frame
+Betas <- data.frame("LSLR" = as.numeric(coefficients(reg.LSLR)), "Ridge" = as.numeric(coefficients(reg.ridge)), "Lasso" = as.numeric(coefficients(reg.lasso)), "Elastic" = elastic.betas)
+
+rownames(Betas) <- colnames(XD)
+
+knitr::kable(Betas)
+```
+
+
+### Evaluation
+
+```{r}
+# MSE of the trained elastic net
+# MSEen <- mean( (data$price - predict(reg.elastic, newx = XD[,-1]))^2)
+# MSEl
+# sum(reg.elastic$beta)
+```
+
+  Coincidentally, this pair of the tuning parameter corresponds to the tuning parameter of the lasso regression. This indicates that the lasso regression is potentially the best choice to solve the prediction problem. Because at (1.0, 0.5), the elastic net performs as the lasso regression, we expect that the outputs are identical to the outputs from Section 4, so we should evaluate the LSLR, Ridge, and Lasso models to make the optimal choice. 
+  
+  From the trained elastic net model, the MSE of the elastic net at $\alpha$ = 1, and $\lambda$ = 0.5 is around 3459.3, and the sum of coefficients is 34.3, which is identical as the trained lasso regression model. This result support our statement above.
+  
+
+\pagebreak
+
+# Section 6: Comparison and Conclusions
+
+### Summary Table
+
+```{r, warning=FALSE}
+# construct a matrix to store the output values for summary table
+# because beta does not include the intercept, so we should also add it to the number of features
+show3 <- matrix(data = c(reg.lasso$lambda, reg.ridge$lambda, reg.LSLR$lambda, MSEl, MSEr,MSE, abs(sum(reg.lasso$beta)), abs(sum(reg.ridge$beta)), abs(sum(reg.LSLR$beta)), length(reg.lasso$beta) - length(which(reg.lasso$beta == 0)), length(reg.ridge$beta) , length(reg.LSLR$beta)), nrow = 3, ncol = 4)
+
+# name the rows and columns
+rownames(show3) <- c("Lasso", "Ridge", "LSLR")
+# metric names
+colnames(show3) <- c("Lambda", "MSE", "Sum Coefficients (abs)", "Num Features")
+
+# construct a table to show the output
+knitr::kable(round(show3,1), caption = "Summary Table: Lasso vs Ridge vs LSLR")
+```
+
+
+  The summary table indicates that the lasso regression obtained comparable predictive accuracy compared with LSLR and ridge regression (all around 3450). Regardless of external factors, the most accurate model is the least-square linear regression model, which has the lowest MSE (3449.7) among all models. Therefore, for accuracy purposes only, ridge regression should be selected. In this task, we only dealing with the predictive task. However, the lasso regression obtained significantly less sum of coefficients and number of features, which means less complexity and variance in prediction. Less complexity improved the readability of the model and training accuracy since a more complex model requires more training data to obtain the pattern of the data. Smaller variance also ensures the applicability of the model in real life. Therefore, we recommend that the lasso regression should be the model for price prediction. 
+
+
